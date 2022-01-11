@@ -1,2 +1,8 @@
+# node stuff
 node_modules/
+
+# deploy stuff
 .serverless/
+
+# log files
+*.log

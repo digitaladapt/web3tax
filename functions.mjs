@@ -368,6 +368,8 @@ export const logWithdraw = async (redis, key, action) => {
     let liquid = 0;
     do {
         const a = pooled[action.pools[0]].shift();
+        if (a.LP + liquid + units > 0) {
+        }
 
         // until $liquid === a.LP, continue summing
     } while ();

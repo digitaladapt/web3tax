@@ -166,17 +166,17 @@ export const runProcess = async (redis, key, wallets) => {
     do {
         await midgard(wallets, thePage, async (row) => {
             //console.log('adding-row');
-            redis.zAdd(key, {score: row.date.slice(0, -6), value: JSON.stringify(row)});
+            await redis.zAdd(key, {score: row.date.slice(0, -6), value: JSON.stringify(row)});
             if (firstRow) {
                 firstRow = false;
                 //console.log('set data-expire');
-                redis.expire(key, await redis.ttl(key + '_status'));
+                await redis.expire(key, await redis.ttl(key + '_status'));
             }
         }, async (count) => {
             theCount = count;
             //console.log('setting-count');
-            redis.set(key + '_count', count);
-            redis.expire(key + '_count', await redis.ttl(key + '_status'));
+            await redis.set(key + '_count', count);
+            await redis.expire(key + '_count', await redis.ttl(key + '_status'));
         });
         thePage++;
     } while (thePage * process.env.MIDGARD_LIMIT < theCount);
@@ -186,13 +186,6 @@ export const runProcess = async (redis, key, wallets) => {
     //console.log('--------------');
     //console.log(await redis.get(key + '_count'));
     //console.log('--------------');
-
-//    let record;
-//    let checkIn;
-//    let checkOut;
-//    let checkFee;
-//    let multi;
-//    let fees;
 
     for (const row of await redis.zRange(key, 0, 9999999999999)) {
         const action = JSON.parse(row);
@@ -222,10 +215,16 @@ export const runProcess = async (redis, key, wallets) => {
         // -----
         //
         // for each withdraw we need to have
-        // a "
-
-        //console.log(action);
-        //console.log('--------------');
+        // a "deposit" transaction where we get back whatever we had swapped in from our pooled history
+        // for the number of LP units withdrawn...
+        //
+        // If needed, a "trade" to resolve cross currency issues (this will require to know the pool swap rate at
+        // that point in time, which will need to be looked up (and stored for a long time).
+        //
+        // furthermore, we'll need to account for gains/loss (is loss possible?)
+        // for each currency (these will be "income" transactions
+        //
+        // and finally for any non-rune, a "withdrawal" to the other wallet
 
         if (action.status === 'pending') {
             // "pending" also included failed transactions
@@ -244,75 +243,7 @@ export const runProcess = async (redis, key, wallets) => {
                 break;
         }
 
-//        record = {};
-//        fees = {};
-//
-//        switch (action.type) {
-//            case 'addLiquidity':
-//                // one or two in, nothing out
-//                checkIn  = true;
-//                checkOut = false;
-//                checkFee = false;
-//                multi    = true;
-//                record.type = 'Withdrawal';
-//                break;
-//            case 'withdraw':
-//                // one trivial in, one or two out
-//                // trivial: (previously 1/100,000,000 RUNE, now zero)
-//                checkIn  = false;
-//                checkOut = true;
-//                checkFee = true;
-//                multi    = true;
-//                record.type = 'Deposit';
-//                break;
-//            case 'refund':
-//                record.comment = 'Swap Failed and Refunded';
-//                // NOTICE NO BREAK
-//            case 'swap':
-//            default:
-//                // one in, one out
-//                checkIn  = true;
-//                checkOut = true;
-//                checkFee = true;
-//                multi    = false;
-//                record.type = 'Trade';
-//                break;
-//        }
-//
-//        // 18,000 seconds (5 hours), to convert to UTC
-//        // not sure why the timestamps are in Eastern Time
-//        record.date = formatDate(action.date);
-//
-//        if (checkFee) {
-//            for (const fee of Object.values(action.metadata)) {
-//                fees[token(fee.networkFees[0]?.asset)] = fee.networkFees[0].amount / 100000000;
-//                //console.log("FEE:", fee.networkFees[0].amount / 100000000, token(fee.networkFees[0]?.asset));
-//            }
-//        }
-//
-//        if (checkIn) {
-//            for (const sent of action.in) {
-//                //record["TxHash"]        = sent.txID;
-//                //record["Sent Amount"]   = (sent.coins[0]?.amount ?? 0) / 100000000;
-//                //record["Sent Currency"] = token(sent.coins[0]?.asset ?? "THOR.RUNE");
-//                //if (fees[record["Sent Currency"]] !== undefined) {
-//                //    record["Fee Amount"]   = fees[record["Sent Currency"]];
-//                //    record["Fee Currency"] = record["Sent Currency"];
-//
-//                //    // when sending, the amount that actually left the wallet, is sent+fee...
-//                //    record["Sent Amount"] += fees[record["Sent Currency"]];
-//                //}
-//                //if (multi) {
-//                //    console.log(Object.values(record).join(","));
-//                //}
-//                console.log("IN:", sent.address, sent.txID, (sent.coins[0]?.amount ?? 0) / 100000000, sent.coins[0]?.asset ?? "THOR.RUNE");
-//            }
-//        }
-//
-//        console.log('record: ', record);
-//        console.log('fees  : ', fees);
-//        console.log('--------------');
-//        //Type	Buy Amount	Buy Currency	Sell Amount	Sell Currency	Fee	Fee Currency	Exchange	Trade-Group	Comment	Date	Tx-ID
+        console.log('--------------');
     }
 
     await redis.quit();
@@ -323,7 +254,7 @@ export const logTrade = async (redis, key, action) => {
 
     await logToWallet(redis, key, action);
 
-    console.log({
+    await storeRecord(redis, key, {
         type: 'trade',
         buyAmount:  action.out[0].coins[0].amount / 100000000,
         buyCurr:    token(action.out[0].coins[0].asset),
@@ -333,28 +264,23 @@ export const logTrade = async (redis, key, action) => {
         feeCurr:    token(action.metadata.swap.networkFees[0].asset),
         date:       date,
     });
-    //await redis.rPush(key + '_record', {});
 
     if (action.out[0].coins[0].asset !== 'THOR.RUNE') {
-        console.log({
+        await storeRecord(redis, key, {
             type:      'withdrawal',
             buyAmount: action.out[0].coins[0].amount / 100000000,
             buyCurr:   token(action.out[0].coins[0].asset),
             date:      date,
             txID:      action.out[0].txID,
         });
-        //await redis.rPush(key + '_record', {});
     }
-
-    console.log('==============');
 };
 
 const pooled = {};
 export const logDeposit = async (redis, key, action) => {
     await logToWallet(redis, key, action);
 
-    console.log(pooled);
-    console.log('++++++++++++++');
+    //console.log(pooled);
 };
 
 export const logWithdraw = async (redis, key, action) => {
@@ -367,15 +293,38 @@ export const logWithdraw = async (redis, key, action) => {
     let rune   = 0;
     let liquid = 0;
     do {
+        // calculate the first-in-first-out rune/asset sent into the liquidity pools, so we can handle the accounting correctly
+        // notice we round all math to exactly 8 places at every step, to ensure rounding errors aren't a problem
         const a = pooled[action.pools[0]].shift();
-        if (a.LP + liquid + units > 0) {
+        if (a) {
+            if (Number((a.LP + liquid + units).toFixed(8)) > 0) {
+                const percent = (a.LP + liquid + units) / a.LP;
+
+                liquid += Number((a.LP - (a.LP * percent)).toFixed(8));
+                asset  += Number(((a[token(action.pools[0])] ?? 0) - ((a[token(action.pools[0])] ?? 0) * percent)).toFixed(8));
+                rune   += Number(((a.RUNE ?? 0) - ((a.RUNE ?? 0) * percent)).toFixed(8));
+
+                a.LP                      = Number((a.LP * percent).toFixed(8));
+                a[token(action.pools[0])] = Number(((a[token(action.pools[0])] ?? 0) * percent).toFixed(8));
+                a.RUNE                    = Number(((a.RUNE ?? 0) * percent).toFixed(8));
+
+                // take the leftover and put it back into the pooled, and break out of the loop
+                pooled[action.pools[0]].unshift(a);
+                break;
+            } else {
+                liquid += a.LP;
+                asset  += a[token(action.pools[0])] ?? 0;
+                rune   += a.RUNE ?? 0;
+            }
+        } else {
+            console.log('Error: Liquidity Units Provided mismatch for pool: ' + action.pools[0]);
+            break;
         }
+    } while (Number((liquid + units).toFixed(8)) < 0);
 
-        // until $liquid === a.LP, continue summing
-    } while ();
-
-    console.log('removing lp units. need calculate how much came out, and what the correct output is, so we can calculate the implicit trade and log that.. and then finally the from wallet transaction');
-    console.log('--------------');
+    // we now have how much we originally deposited (rune and asset), and how much was actually withdrawn (action.out[]coins[])
+    // TODO from here
+    console.log('withdrawing rune: ' + rune + ', and asset: ' + asset + ', from the pool: ' + token(action.pools[0]) + ', resulting in an outcome of: ' + JSON.stringify(action.out));
 };
 
 export const logToWallet = async (redis, key, action) => {
@@ -386,24 +335,34 @@ export const logToWallet = async (redis, key, action) => {
         coins[token(sent.coins[0].asset)] = sent.coins[0].amount / 100000000;
 
         if (sent.coins[0].asset !== 'THOR.RUNE') {
-            console.log({
+            await storeRecord(redis, key, {
                 type:      'deposit',
-                buyAmount: sent.coins[0].amount / 100000000,
+                buyAmount: coins[token(sent.coins[0].asset)],
                 buyCurr:   token(sent.coins[0].asset),
                 date:      date,
                 txID:      sent.txID,
             });
-            //await redis.rPush(key + '_record', {});
         }
     }
 
     // if adding liquidity, note how much was swapped in
     if ('addLiquidity' in action.metadata) {
-        pooled[action.pools[0]] ||= [];
+        pooled[action.pools[0]] || (pooled[action.pools[0]] = []);
         pooled[action.pools[0]].push({
             LP: Number(action.metadata.addLiquidity.liquidityUnits) / 100000000,
             ...coins,
         });
+    }
+};
+
+let firstRecord = true;
+export const storeRecord = async (redis, key, record) => {
+    console.log(JSON.stringify(record));
+    await redis.rPush(key + '_record', JSON.stringify(record));
+    if (firstRecord) {
+        firstRecord = false;
+        //console.log('set record-expire');
+        await redis.expire(key + '_record', await redis.ttl(key + '_status'));
     }
 };
 

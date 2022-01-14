@@ -243,7 +243,7 @@ export const runProcess = async (redis, key, wallets) => {
                 break;
         }
 
-        console.log('--------------');
+        //console.log('--------------');
     }
 
     await redis.quit();
@@ -276,55 +276,75 @@ export const logTrade = async (redis, key, action) => {
     }
 };
 
+// remember: pooled uses the full pool asset name, not the nice token name
+// so that "BNB.ETH-1C9" and "ETH.ETH" are separate, instead of both being simply "ETH"
 const pooled = {};
 export const logDeposit = async (redis, key, action) => {
     await logToWallet(redis, key, action);
-
     //console.log(pooled);
 };
 
 export const logWithdraw = async (redis, key, action) => {
     const date = formatDate(action.date);
 
-    // remember, this is a negative number
+    // liquidity-units actually removed, remember, this is a negative number
     const units = Number(action.metadata.withdraw.liquidityUnits) / 100000000;
 
-    let asset  = 0;
-    let rune   = 0;
-    let liquid = 0;
+    // the nice name of the token asset in the pool alongside RUNE
+    const asset = token(action.pools[0]);
+
+    // calculated tokens, to determine cost-basis, currently just first-in-first-out, but should work on supporting more
+    const basis = {LP: 0, RUNE: 0, [asset]: 0};
     do {
         // calculate the first-in-first-out rune/asset sent into the liquidity pools, so we can handle the accounting correctly
         // notice we round all math to exactly 8 places at every step, to ensure rounding errors aren't a problem
-        const a = pooled[action.pools[0]].shift();
-        if (a) {
-            if (Number((a.LP + liquid + units).toFixed(8)) > 0) {
-                const percent = (a.LP + liquid + units) / a.LP;
+        const deposit = pooled[action.pools[0]].shift();
+        if (deposit) {
+            if (Number((deposit.LP + basis.LP + units).toFixed(8)) > 0) {
+                const percent = (deposit.LP + basis.LP + units) / deposit.LP;
 
-                liquid += Number((a.LP - (a.LP * percent)).toFixed(8));
-                asset  += Number(((a[token(action.pools[0])] ?? 0) - ((a[token(action.pools[0])] ?? 0) * percent)).toFixed(8));
-                rune   += Number(((a.RUNE ?? 0) - ((a.RUNE ?? 0) * percent)).toFixed(8));
+                // since we need just a portion of this current deposit, add the needed amount to our basis
+                basis.LP     = Number((basis.LP     + deposit.LP            - (deposit.LP            * percent)).toFixed(8));
+                basis[asset] = Number((basis[asset] + (deposit[asset] ?? 0) - ((deposit[asset] ?? 0) * percent)).toFixed(8));
+                basis.RUNE   = Number((basis.RUNE   + (deposit.RUNE ?? 0)   - ((deposit.RUNE ?? 0)   * percent)).toFixed(8));
 
-                a.LP                      = Number((a.LP * percent).toFixed(8));
-                a[token(action.pools[0])] = Number(((a[token(action.pools[0])] ?? 0) * percent).toFixed(8));
-                a.RUNE                    = Number(((a.RUNE ?? 0) * percent).toFixed(8));
+                // update the deposit, with the leftover, so we can track the next withdraw correctly
+                deposit.LP     = Number((deposit.LP            * percent).toFixed(8));
+                deposit[asset] = Number(((deposit[asset] ?? 0) * percent).toFixed(8));
+                deposit.RUNE   = Number(((deposit.RUNE ?? 0)   * percent).toFixed(8));
 
                 // take the leftover and put it back into the pooled, and break out of the loop
-                pooled[action.pools[0]].unshift(a);
+                pooled[action.pools[0]].unshift(deposit);
                 break;
             } else {
-                liquid += a.LP;
-                asset  += a[token(action.pools[0])] ?? 0;
-                rune   += a.RUNE ?? 0;
+                basis.LP     = Number((basis.LP     + deposit.LP           ).toFixed(8));
+                basis[asset] = Number((basis[asset] + (deposit[asset] ?? 0)).toFixed(8));
+                basis.RUNE   = Number((basis.RUNE   + (deposit.RUNE ?? 0)  ).toFixed(8));
             }
         } else {
             console.log('Error: Liquidity Units Provided mismatch for pool: ' + action.pools[0]);
             break;
         }
-    } while (Number((liquid + units).toFixed(8)) < 0);
+    } while (Number((basis.LP + units).toFixed(8)) < 0);
 
-    // we now have how much we originally deposited (rune and asset), and how much was actually withdrawn (action.out[]coins[])
+    // coins actually received
+    const coins = {};
+
+    for (const received of action.out) {
+        coins[token(received.coins[0].asset)] = received.coins[0].amount / 100000000;
+    }
+
+    // we now have how much we originally deposited (in "basis"), and how much was actually withdrawn (in "coins")
     // TODO from here
-    console.log('withdrawing rune: ' + rune + ', and asset: ' + asset + ', from the pool: ' + token(action.pools[0]) + ', resulting in an outcome of: ' + JSON.stringify(action.out));
+    // so, withdraw is either: 50%/50% or 100% of asset or rune...
+    //
+    // the only extra complication would be a deposit of something more complex (like 25%/75% from "expert mode")
+    // or other stuff like the XRUNE kickoff, where it was 99% RUNE and 1 XRUNE into the pool...
+    // possible cases:
+    // deposited rune, rune/asset, asset
+    // withdrawn rune, rune/asset, asset
+    // for a total of 6 cases that all need to be handled
+    console.log('withdrawing basis: ' + JSON.stringify(basis) + ', from the pool: ' + asset + ', resulting in an outcome of: ' + JSON.stringify(coins));
 };
 
 export const logToWallet = async (redis, key, action) => {
@@ -357,7 +377,7 @@ export const logToWallet = async (redis, key, action) => {
 
 let firstRecord = true;
 export const storeRecord = async (redis, key, record) => {
-    console.log(JSON.stringify(record));
+    //console.log(JSON.stringify(record));
     await redis.rPush(key + '_record', JSON.stringify(record));
     if (firstRecord) {
         firstRecord = false;

@@ -4,6 +4,9 @@ import fetch from 'node-fetch';
 import { createClient } from 'redis';
 import crypto from 'crypto';
 
+// FUTURE TODO, make configurable, and allow it to be set to true conditionally
+const detailedLP = false;
+
 // format given date as "YYYY-MM-DD HH:MM:SS"
 export const formatDate = (date) => {
     // date starts as unix-timestamp in nano-seconds, in timezone 4 hours off
@@ -226,6 +229,8 @@ export const runProcess = async (redis, key, wallets) => {
         //
         // and finally for any non-rune, a "withdrawal" to the other wallet
 
+        console.log(action.type); // FIXME
+
         if (action.status === 'pending') {
             // "pending" also included failed transactions
             continue;
@@ -243,7 +248,7 @@ export const runProcess = async (redis, key, wallets) => {
                 break;
         }
 
-        //console.log('--------------');
+        console.log('--------------'); // FIXME
     }
 
     await redis.quit();
@@ -266,10 +271,17 @@ export const logTrade = async (redis, key, action) => {
     });
 
     if (action.out[0].coins[0].asset !== 'THOR.RUNE') {
+        const fee = {};
+        if (action.in[0].coins[0].asset === 'THOR.RUNE') {
+            // TODO: remember, this could change in the future
+            fee.fee     = 0.02;
+            fee.feeCurr = 'RUNE';
+        }
         await storeRecord(redis, key, {
             type:      'withdrawal',
             buyAmount: action.out[0].coins[0].amount / 100000000,
             buyCurr:   token(action.out[0].coins[0].asset),
+            ...fee,
             date:      date,
             txID:      action.out[0].txID,
         });
@@ -280,13 +292,103 @@ export const logTrade = async (redis, key, action) => {
 // so that "BNB.ETH-1C9" and "ETH.ETH" are separate, instead of both being simply "ETH"
 const pooled = {};
 export const logDeposit = async (redis, key, action) => {
-    await logToWallet(redis, key, action);
+    const date = formatDate(action.date);
+
+    const units = await logToWallet(redis, key, action);
     //console.log(pooled);
+
+    // then a "withdrawal" transaction for each asset sent into the pool
+    for (const sent of action.in) {
+        const fee = {};
+        if (sent.coins[0].asset === 'THOR.RUNE') {
+            // TODO: remember, this could change in the future
+            fee.fee     = 0.02;
+            fee.feeCurr = 'RUNE';
+        }
+        await storeRecord(redis, key, {
+            type:       'withdrawal',
+            sellAmount: sent.coins[0].amount / 100000000,
+            sellCurr:   token(sent.coins[0].asset),
+            comment:    'Sent to Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
+            ...fee,
+            date:       date,
+        });
+    }
+
+    // then (optionally), a "non-taxible income" for the liquidity units
+    if (detailedLP) {
+        await storeRecord(redis, key, {
+            type:      'non-taxable income',
+            buyAmount: units,
+            buyCurr:   token(action.pools[0]) + '-RUNE',
+            comment:   'Sent to Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
+            date:      date,
+        });
+    }
 };
 
 export const logWithdraw = async (redis, key, action) => {
     const date = formatDate(action.date);
 
+    // the nice name of the token asset in the pool alongside RUNE
+    const asset = token(action.pools[0]);
+
+    // calculated tokens, to determine cost-basis, currently just first-in-first-out, but should work on supporting more
+    const basis = calculateBasis(action);
+
+    // coins actually received
+    const coins = {};
+
+    for (const received of action.out) {
+        coins[token(received.coins[0].asset)] = received.coins[0].amount / 100000000;
+    }
+
+    // we now have how much we originally deposited (in "basis"), and how much was actually withdrawn (in "coins")
+    // TODO from here
+    // so, withdraw is either: 50%/50% or 100% of asset or rune...
+    //
+    // but remember the deposit is likely more complex, even if it was always 50%/50%, over multiple times, the balance
+    // of the basis will likely be off balance, since there are constantly changes in value
+    // possible cases:
+    // deposited rune, rune/asset, asset
+    // withdrawn rune, rune/asset, asset
+    // for a total of 9 cases that all need to be handled (5 types:   A to B   |||   A to A/B   |||   A to A   |||   A/B to A/B   |||   A/B to A   )
+    // in all cases, the quantity of A and/or B will have changed
+    console.log('withdrawing basis: ' + JSON.stringify(basis) + ', from the pool: ' + chainToken(action.pools[0]) + ', resulting in an outcome of: ' + JSON.stringify(coins));
+
+    if (detailedLP) {
+        await storeRecord(redis, key, {
+            type:       'non-taxable expense',
+            sellAmount: basis.LP,
+            sellCurr:   token(action.pools[0]) + '-RUNE',
+            comment:    'Received from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
+            date:       date,
+        });
+    }
+
+    // a "deposit" for each basis we get out (1 or 2)
+    if (basis.RUNE > 0) {
+        await storeRecord(redis, key, {
+            type:      'deposit',
+            buyAmount: basis.RUNE,
+            buyCurr:   'RUNE',
+            // TODO: remember, fee could change in the future
+            fee:       0.02,
+            feeCurr:   'RUNE',
+            comment:    'Received from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
+            date:      date,
+        });
+    }
+    if (basis[asset] > 0) {
+        // TODO
+    }
+
+    // if needed, a "trade" for types:   A to B   |||   A to A/B   |||   A/B to A
+
+    // finally an income/loss to resolve each currency (1 or 2)
+};
+
+export const calculateBasis = (action) => {
     // liquidity-units actually removed, remember, this is a negative number
     const units = Number(action.metadata.withdraw.liquidityUnits) / 100000000;
 
@@ -327,26 +429,10 @@ export const logWithdraw = async (redis, key, action) => {
         }
     } while (Number((basis.LP + units).toFixed(8)) < 0);
 
-    // coins actually received
-    const coins = {};
-
-    for (const received of action.out) {
-        coins[token(received.coins[0].asset)] = received.coins[0].amount / 100000000;
-    }
-
-    // we now have how much we originally deposited (in "basis"), and how much was actually withdrawn (in "coins")
-    // TODO from here
-    // so, withdraw is either: 50%/50% or 100% of asset or rune...
-    //
-    // the only extra complication would be a deposit of something more complex (like 25%/75% from "expert mode")
-    // or other stuff like the XRUNE kickoff, where it was 99% RUNE and 1 XRUNE into the pool...
-    // possible cases:
-    // deposited rune, rune/asset, asset
-    // withdrawn rune, rune/asset, asset
-    // for a total of 6 cases that all need to be handled
-    console.log('withdrawing basis: ' + JSON.stringify(basis) + ', from the pool: ' + asset + ', resulting in an outcome of: ' + JSON.stringify(coins));
+    return basis;
 };
 
+// for "addLiquidity" will return number of LiquidityUnits added, otherwise null
 export const logToWallet = async (redis, key, action) => {
     const date = formatDate(action.date);
     const coins = {};
@@ -372,12 +458,16 @@ export const logToWallet = async (redis, key, action) => {
             LP: Number(action.metadata.addLiquidity.liquidityUnits) / 100000000,
             ...coins,
         });
+
+        return Number(action.metadata.addLiquidity.liquidityUnits) / 100000000;
     }
+
+    return null;
 };
 
 let firstRecord = true;
 export const storeRecord = async (redis, key, record) => {
-    //console.log(JSON.stringify(record));
+    console.log(JSON.stringify(record)); // FIXME
     await redis.rPush(key + '_record', JSON.stringify(record));
     if (firstRecord) {
         firstRecord = false;
@@ -394,5 +484,10 @@ export const sha256 = (input) => {
 // convert "BNB.BUSD-BD1" into "BUSD"
 export const token = (asset) => {
     return asset.split('.')[1].split('-')[0];
+};
+
+// convert "BNB.BUSD-BD1" into "BNB.BUSD"
+export const chainToken = (asset) => {
+    return asset.split('-')[0];
 };
 

@@ -26,6 +26,20 @@ export const submitAddresses = async (event) => {
     return formatSuccess({key: key, message: 'Processing Started'});
 };
 
+export const fetchReport = async (event) => {
+    const key = event.pathParameters.key ?? null;
+    // also get any options like format
+
+    const redis = await getRedis();
+
+    if (await redis.exists(key + '_status')) {
+        // TODO for each row into needed format...
+        return formatSuccess({message: 'Exists'});
+    }
+
+    return formatError('Unknown Key');
+};
+
 // endpoint: just an example, for testing only
 //export const hello = async (event) => {
 //    let res = {}

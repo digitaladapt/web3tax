@@ -165,7 +165,8 @@ export const runProcess = async (redis, key, wallets) => {
     let thePage  = 0;
 
     await redis.set(key + '_status', 'Starting');
-    await redis.expire(key + '_status', 10); // FIXME 3600);
+    await redis.expire(key + '_status', 3600);
+    //await redis.expire(key + '_status', 10); // FIXME 3600);
     do {
         await midgard(wallets, thePage, async (row) => {
             //console.log('adding-row');
@@ -381,6 +382,13 @@ export const logWithdraw = async (redis, key, action) => {
     }
     if (basis[asset] > 0) {
         // TODO
+        await storeRecord(redis, key, {
+            type:      'deposit',
+            buyAmount: basis[asset],
+            buyCurr:   asset,
+            comment:    'Received from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
+            date:      date,
+        });
     }
 
     // if needed, a "trade" for types:   A to B   |||   A to A/B   |||   A/B to A

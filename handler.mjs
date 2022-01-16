@@ -17,6 +17,7 @@ export const submitAddresses = async (event) => {
     const redis = await getRedis();
 
     if (await redis.exists(key + '_status')) {
+        await redis.quit();
         return formatSuccess({key: key, message: 'Already Running'});
     }
 
@@ -34,9 +35,14 @@ export const fetchReport = async (event) => {
 
     if (await redis.exists(key + '_status')) {
         // TODO for each row into needed format...
-        return formatSuccess({message: 'Exists'});
+        const transactions = await redis.lRange(key + '_record', 0, -1);
+        await redis.quit();
+        return formatSuccess({
+            transactions: transactions,
+        });
     }
 
+    await redis.quit();
     return formatError('Unknown Key');
 };
 

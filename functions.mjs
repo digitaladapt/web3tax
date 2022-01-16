@@ -166,7 +166,6 @@ export const runProcess = async (redis, key, wallets) => {
 
     await redis.set(key + '_status', 'Starting');
     await redis.expire(key + '_status', 3600);
-    //await redis.expire(key + '_status', 10); // FIXME 3600);
     do {
         await midgard(wallets, thePage, async (row) => {
             //console.log('adding-row');
@@ -230,7 +229,7 @@ export const runProcess = async (redis, key, wallets) => {
         //
         // and finally for any non-rune, a "withdrawal" to the other wallet
 
-        console.log(action.type); // FIXME
+        //console.log(action.type);
 
         if (action.status === 'pending') {
             // "pending" also included failed transactions
@@ -249,7 +248,7 @@ export const runProcess = async (redis, key, wallets) => {
                 break;
         }
 
-        console.log('--------------'); // FIXME
+        //console.log('--------------');
     }
 
     await redis.quit();
@@ -355,7 +354,7 @@ export const logWithdraw = async (redis, key, action) => {
     // withdrawn rune, rune/asset, asset
     // for a total of 9 cases that all need to be handled (5 types:   A to B   |||   A to A/B   |||   A to A   |||   A/B to A/B   |||   A/B to A   )
     // in all cases, the quantity of A and/or B will have changed
-    console.log('withdrawing basis: ' + JSON.stringify(basis) + ', from the pool: ' + chainToken(action.pools[0]) + ', resulting in an outcome of: ' + JSON.stringify(coins));
+    //console.log('withdrawing basis: ' + JSON.stringify(basis) + ', from the pool: ' + chainToken(action.pools[0]) + ', resulting in an outcome of: ' + JSON.stringify(coins));
 
     if (detailedLP) {
         await storeRecord(redis, key, {
@@ -475,7 +474,7 @@ export const logToWallet = async (redis, key, action) => {
 
 let firstRecord = true;
 export const storeRecord = async (redis, key, record) => {
-    console.log(JSON.stringify(record)); // FIXME
+    //console.log(JSON.stringify(record));
     await redis.rPush(key + '_record', JSON.stringify(record));
     if (firstRecord) {
         firstRecord = false;

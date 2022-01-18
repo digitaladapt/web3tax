@@ -26,8 +26,8 @@ functions:
       - httpApi:
           path: /generate
           method: get
-  fetchResults:
-    handler: handler.fetchResults
+  fetchReport:
+    handler: handler.fetchReport
     vpc:
       securityGroupIds:
         - "Fn::GetAtt": [ServerlessSecurityGroup, GroupId]

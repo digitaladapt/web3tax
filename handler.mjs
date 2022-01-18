@@ -6,7 +6,7 @@ import { formatError, formatSuccess, getRedis, midgard, normalizeAddresses, runP
 export const submitAddresses = async (event) => {
     let wallets;
     try {
-        wallets = normalizeAddresses(event.pathParameters);
+        wallets = normalizeAddresses(event.queryStringParameters);
         //console.log(wallets);
     } catch (errors) {
         return formatError('Invalid Wallet Address(es) provided: ' + errors.join(', '));
@@ -28,7 +28,7 @@ export const submitAddresses = async (event) => {
 };
 
 export const fetchReport = async (event) => {
-    const key = event.pathParameters.key ?? null;
+    const key = event.queryStringParameters.key ?? null;
     // also get any options like format
 
     const redis = await getRedis();

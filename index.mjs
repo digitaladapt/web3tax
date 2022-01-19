@@ -9,9 +9,13 @@ const answer = await handler.submitAddresses({ queryStringParameters: {
     thor: 'thor1m402rfftzrufugu383sn7mwpdp2qmeq4vx8l27',
 }});
 
-console.log(answer);
-
 const key = JSON.parse(answer.body).key;
+
+console.log('---------------------------------------------------------------');
+console.log('---------------------------------------------------------------');
+console.log(answer);
+console.log('---------------------------------------------------------------');
+
 
 const report = await handler.fetchReport({ queryStringParameters: {
     key: key,

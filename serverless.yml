@@ -37,6 +37,17 @@ functions:
       - httpApi:
           path: /report
           method: get
+  purgeReport:
+    handler: handler.purgeReport
+    vpc:
+      securityGroupIds:
+        - "Fn::GetAtt": [ServerlessSecurityGroup, GroupId]
+      subnetIds:
+        - Ref: ServerlessPrivateSubnetA
+    events:
+      - httpApi:
+          path: /clear
+          method: get
 resources:
   Resources:
     ServerlessVPC:

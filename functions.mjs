@@ -63,6 +63,7 @@ export const midgard = async (wallets, pagination, addAction, setCount) => {
     const url = process.env.MIDGARD_URL.replace('{WALLETS}', wallets.join(',')).replace('{OFFSET}', pagination * process.env.MIDGARD_LIMIT);
     //console.log('url:', url);
     await fetch(url).then((response) => {
+        //console.log('response: fetch successful');
         return response.json();
     }).then(async (data) => {
         await setCount(data.count);
@@ -160,6 +161,7 @@ export const normalizeAddresses = (addresses) => {
 
 // download the results, and calculate the report
 export const runProcess = async (redis, key, wallets) => {
+    //console.log('starting to run the process');
     let firstRow = true;
     let theCount = -1;
     let thePage  = 0;
@@ -252,6 +254,8 @@ export const runProcess = async (redis, key, wallets) => {
     }
 
     await redis.quit();
+
+    //console.log('process completed');
 };
 
 export const logTrade = async (redis, key, action) => {
@@ -474,7 +478,7 @@ export const logToWallet = async (redis, key, action) => {
 
 let firstRecord = true;
 export const storeRecord = async (redis, key, record) => {
-    //console.log(JSON.stringify(record));
+    //console.log('store:', record);
     await redis.rPush(key + '_record', JSON.stringify(record));
     if (firstRecord) {
         firstRecord = false;

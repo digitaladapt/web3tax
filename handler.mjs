@@ -18,13 +18,13 @@ export const submitAddresses = async (event) => {
 
     if (await redis.exists(key + '_status')) {
         await redis.quit();
-        return formatSuccess({key: key, message: 'Already Running'});
+        return formatSuccess({key: key, message: 'Already Generated'});
     }
 
     // running this in the background doesn't seem to work, so we'll wait
     await runProcess(redis, key, wallets);
 
-    return formatSuccess({key: key, message: 'Processing Started'});
+    return formatSuccess({key: key, message: 'Processing Completed'});
 };
 
 export const fetchReport = async (event) => {

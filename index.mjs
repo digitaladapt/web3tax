@@ -1,5 +1,9 @@
 import * as handler from './handler.mjs';
 
+await handler.purgeReport({ queryStringParameters: {
+    key: '60355778dabf7b986e65433cf14cd3934f28b87ebd3739242b9e07a5ed3d2225',
+}});
+
 const answer = await handler.submitAddresses({ queryStringParameters: {
     eth:  '0x0c85b035f138bBDe4f6D200C1c90dA7136427D4B',
     bch:  'qqpwmnx6kflq6klscg53nnspshwtcd5vyq4j6gmrdh',

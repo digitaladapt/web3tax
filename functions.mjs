@@ -167,7 +167,7 @@ export const runProcess = async (redis, key, wallets) => {
     let theCount = -1;
     let thePage  = 0;
 
-    await redis.set(key + '_status', 'Starting');
+    await redis.set(key + '_status', 'Starting to Download Transactions');
     await redis.expire(key + '_status', 3600);
     do {
         await midgard(wallets, thePage, async (row) => {
@@ -182,10 +182,14 @@ export const runProcess = async (redis, key, wallets) => {
             theCount = count;
             //console.log('setting-count');
             await redis.set(key + '_count', count);
+            await redis.set(key + '_status', 'Downloading ' + Math.min((thePage + 1) * process.env.MIDGARD_LIMIT, count) + ' of ' + count);
             await redis.expire(key + '_count', await redis.ttl(key + '_status'));
         });
         thePage++;
     } while (thePage * process.env.MIDGARD_LIMIT < theCount);
+
+    await redis.set(key + '_status', 'Now Processing Transactions');
+    let rowNumber = 0;
 
     //console.log('--------------');
     //console.log(await redis.zRange(key, 0, 9999999999999));
@@ -194,6 +198,9 @@ export const runProcess = async (redis, key, wallets) => {
     //console.log('--------------');
 
     for (const row of await redis.zRange(key, 0, 9999999999999)) {
+        rowNumber++;
+        await redis.set(key + '_status', 'Processing ' + rowNumber + ' of ' + theCount);
+
         const action = JSON.parse(row);
 
         // NOTES:
@@ -253,6 +260,8 @@ export const runProcess = async (redis, key, wallets) => {
 
         //console.log('--------------');
     }
+
+    await redis.set(key + '_status', 'Completed');
 
     await redis.quit();
 

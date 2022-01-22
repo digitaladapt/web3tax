@@ -40,6 +40,7 @@ export const getStatus = async (event) => {
         const message = await redis.get(key + '_status');
         await redis.quit();
         return formatSuccess({
+            ready:   (message === 'Completed'),
             message: message,
         });
     }

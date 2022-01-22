@@ -2,6 +2,9 @@
 
 import { formatError, formatSuccess, getRedis, midgard, normalizeAddresses, runProcess, sha256 } from './functions.mjs';
 
+// keep process promise in memory
+let processPromise = null;
+
 // endpoint: kickoff process, start downloading actions from midgard into redis
 export const submitAddresses = async (event) => {
     let wallets;
@@ -18,13 +21,31 @@ export const submitAddresses = async (event) => {
 
     if (await redis.exists(key + '_status')) {
         await redis.quit();
-        return formatSuccess({key: key, message: 'Already Generated'});
+        return formatSuccess({key: key, message: 'Processing Already Running'});
     }
 
     // running this in the background doesn't seem to work, so we'll wait
-    await runProcess(redis, key, wallets);
+    processPromise = runProcess(redis, key, wallets);
 
-    return formatSuccess({key: key, message: 'Processing Completed'});
+    return formatSuccess({key: key, message: 'Processing Started'});
+};
+
+export const getStatus = async (event) => {
+    const key = event.queryStringParameters.key ?? null;
+    // also get any options like format
+
+    const redis = await getRedis();
+
+    if (await redis.exists(key + '_status')) {
+        const message = await redis.get(key + '_status');
+        await redis.quit();
+        return formatSuccess({
+            message: message,
+        });
+    }
+
+    await redis.quit();
+    return formatError('Unknown Key');
 };
 
 export const fetchReport = async (event) => {

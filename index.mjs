@@ -1,8 +1,18 @@
 import * as handler from './handler.mjs';
 
-await handler.purgeReport({ queryStringParameters: {
-    key: '60355778dabf7b986e65433cf14cd3934f28b87ebd3739242b9e07a5ed3d2225',
+const sleep = async (millis) => {
+    return new Promise((resolve) => {
+        setTimeout(resolve, millis)
+    })
+}
+
+const purged = await handler.purgeReport({ queryStringParameters: {
+    key: 'be76cea4371d568d6e19fb0028844689490197848eeb9f63d086bba1c9e2554b',
 }});
+
+console.log('---------------------------------------------------------------');
+console.log(purged);
+console.log('---------------------------------------------------------------');
 
 const answer = await handler.submitAddresses({ queryStringParameters: {
     // zinc
@@ -32,10 +42,20 @@ const answer = await handler.submitAddresses({ queryStringParameters: {
 const key = JSON.parse(answer.body).key;
 
 console.log('---------------------------------------------------------------');
-console.log('---------------------------------------------------------------');
 console.log(answer);
 console.log('---------------------------------------------------------------');
 
+for (let i = 0; i < 5; i++) {
+    await sleep(1000);
+
+    const theStatus = await handler.getStatus({ queryStringParameters: {
+        key: key,
+    }});
+
+    console.log('---------------------------------------------------------------');
+    console.log(theStatus);
+    console.log('---------------------------------------------------------------');
+}
 
 const report = await handler.fetchReport({ queryStringParameters: {
     key: key,
@@ -43,4 +63,6 @@ const report = await handler.fetchReport({ queryStringParameters: {
 
 const output = JSON.parse(report.body);
 
+console.log('---------------------------------------------------------------');
 console.log(output.transactions.pop());
+console.log('---------------------------------------------------------------');

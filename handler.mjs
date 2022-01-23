@@ -1,6 +1,6 @@
 'use strict';
 
-import { formatError, formatSuccess, getRedis, midgard, normalizeAddresses, runProcess, sha256 } from './functions.mjs';
+import { formatCSV, formatError, formatSuccess, getRedis, midgard, normalizeAddresses, runProcess, sha256 } from './functions.mjs';
 
 // keep process promise in memory
 let processPromise = null;
@@ -51,18 +51,35 @@ export const getStatus = async (event) => {
 
 export const fetchReport = async (event) => {
     const key = event.queryStringParameters.key ?? null;
-    // also get any options like format
+    const format = event.queryStringParameters.format ?? null;
 
     const redis = await getRedis();
 
     if (await redis.exists(key + '_status')) {
-        // TODO for each row into needed format...
-        //console.log('results:', await redis.lLen(key + '_record'));
+        // get all the transactions (they are currently JSON strings
         const transactions = await redis.lRange(key + '_record', 0, -1);
         await redis.quit();
-        return formatSuccess({
-            transactions: transactions,
-        });
+
+        // TODO from here, what do we do to make this the right format for koinly...
+        let keys  = [];
+        let base  = {};
+        let lines = [''];
+        let fix   = { find: '', replace: '' };
+
+        switch (format) {
+            case 'cointracking':
+                keys  = ['type', 'buyAmount', 'buyCurr', 'sellAmount', 'sellCurr', 'fee', 'feeCurr', 'exchange', 'tradeGroup', 'comment', 'date', 'txID'];
+                base  = { exchange: 'ThorChain' };
+                lines = ['Type,Buy Amount,Buy Currency,Sell Amount,Sell Currency,Fee,Fee Currency,Exchange,Trade-Group,Comment,Date,Tx-ID'];
+                fix   = { find: '', replace: '' };
+                break;
+        }
+
+        for (const record of transactions) {
+            const transaction = JSON.parse(record);
+            lines.push(keys.map(key => transaction[key] ?? base[key]).join(",").replace(fix.find, fix.replace));
+        }
+        return formatCSV(lines.join('\n'));
     }
 
     await redis.quit();

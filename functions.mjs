@@ -18,6 +18,14 @@ export const formatDate = (date) => {
     return date.getFullYear() + "-" + (date.getMonth() < 9 ? "0" : "") + (date.getMonth() + 1) + "-" + (date.getDate() < 10 ? "0" : "") + date.getDate() + " " + (date.getHours() < 10 ? "0" : "") + date.getHours() + ":" + (date.getMinutes() < 10 ? "0" : "") + date.getMinutes() + ":" + (date.getSeconds() < 10 ? "0" : "") + date.getSeconds();
 }
 
+// output for csv files
+export const formatCSV = (content) => {
+    return {
+        statusCode: 200,
+        body: content,
+    };
+};
+
 // consistent output formating for api
 export const formatError = (message, statusCode) => {
     return {
@@ -262,6 +270,7 @@ export const runProcess = async (redis, key, wallets) => {
     }
 
     await redis.set(key + '_status', 'Completed');
+    console.log('completed|' + Date.now() + '|' + key);
 
     await redis.quit();
 

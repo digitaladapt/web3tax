@@ -199,11 +199,13 @@ export const runProcess = async (redis, key, wallets) => {
             await redis.set(key + '_count', count);
             await redis.set(key + '_status', 'Downloading ' + Math.min((thePage + 1) * process.env.MIDGARD_LIMIT, count) + ' of ' + count);
             await redis.expire(key + '_count', 3600);
+            await redis.expire(key + '_status', 3600);
         });
         thePage++;
     } while (thePage * process.env.MIDGARD_LIMIT < theCount);
 
     await redis.set(key + '_status', 'Now Processing Transactions');
+    await redis.expire(key + '_status', 3600);
     let rowNumber = 0;
 
     //console.log('--------------');
@@ -215,6 +217,7 @@ export const runProcess = async (redis, key, wallets) => {
     for (const row of await redis.zRange(key, 0, 9999999999999)) {
         rowNumber++;
         await redis.set(key + '_status', 'Processing ' + rowNumber + ' of ' + theCount);
+        await redis.expire(key + '_status', 3600);
 
         const action = JSON.parse(row);
 
@@ -277,6 +280,7 @@ export const runProcess = async (redis, key, wallets) => {
     }
 
     await redis.set(key + '_status', 'Completed');
+    await redis.expire(key + '_status', 3600);
     console.log('completed|' + Date.now() + '|' + key);
 
     await redis.quit();

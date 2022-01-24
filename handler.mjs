@@ -67,13 +67,13 @@ export const fetchReport = async (event) => {
         // re-categorize with the correct keywords
         let fix   = { find: /,trade,|,deposit,|,withdrawal,|,income,|,loss,/g, replace: (found) => {
             switch (found) {
-                case ',trade,':
-                case ',deposit,':
-                case ',withdrawal,':
+                case ',Trade,':
+                case ',Deposit,':
+                case ',Withdrawal,':
                     return ',,';
-                case ',income,':
+                case ',Income,':
                     return ',realized gain,';
-                case ',loss,':
+                case ',Lost,':
                     return ',lost,';
             }
         }};
@@ -92,7 +92,7 @@ export const fetchReport = async (event) => {
             const transaction = JSON.parse(record);
             lines.push(keys.map(key => transaction[key] ?? base[key]).join(",").replace(fix.find, fix.replace));
         }
-        return formatCSV(lines.join('\n'));
+        return formatCSV(lines.join('\r\n'));
     }
 
     await redis.quit();

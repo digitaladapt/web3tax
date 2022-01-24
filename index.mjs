@@ -7,7 +7,7 @@ const sleep = async (millis) => {
 }
 
 const purged = await handler.purgeReport({ queryStringParameters: {
-    key: 'be76cea4371d568d6e19fb0028844689490197848eeb9f63d086bba1c9e2554b',
+    key: 'da871c1f67623e442631a90b9f6614de0cd01e13e236a1c2153b26dc2d70da5e',
 }});
 
 console.log(purged);
@@ -64,10 +64,11 @@ do {
 
 const report = await handler.fetchReport({ queryStringParameters: {
     key: key,
+    //format: 'cointracking',
 }});
 
-const output = JSON.parse(report.body);
+const output = report.body;
 
-console.log(output.transactions.pop());
+console.log(output);
 console.log('---------------------------------------------------------------');
 

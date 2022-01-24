@@ -10,10 +10,8 @@ let printDetails = false; // for debugging
 
 // format given date as "YYYY-MM-DD HH:MM:SS"
 export const formatDate = (date) => {
-    // date starts as unix-timestamp in nano-seconds, in timezone 4 hours off
-    // 14,400,000 milliseconds (4 hours), to convert to UTC
-    // not sure why the timestamps are in Eastern Time
-    date = new Date((Number(date) / 1000000) - 14400000);
+    // date starts as unix-timestamp in nano-seconds
+    date = new Date(Number(date) / 1000000);
 
     return date.getFullYear() + "-" + (date.getMonth() < 9 ? "0" : "") + (date.getMonth() + 1) + "-" + (date.getDate() < 10 ? "0" : "") + date.getDate() + " " + (date.getHours() < 10 ? "0" : "") + date.getHours() + ":" + (date.getMinutes() < 10 ? "0" : "") + date.getMinutes() + ":" + (date.getSeconds() < 10 ? "0" : "") + date.getSeconds();
 }
@@ -328,7 +326,7 @@ export const logTrade = async (redis, key, action) => {
     await logToWallet(redis, key, action);
 
     await storeRecord(redis, key, {
-        type: 'trade',
+        type: 'Trade',
         buyAmount:  action.out[0].coins[0].amount / 100000000,
         buyCurr:    token(action.out[0].coins[0].asset),
         sellAmount: action.in[0].coins[0].amount / 100000000,
@@ -339,7 +337,7 @@ export const logTrade = async (redis, key, action) => {
 
     if (action.out[0].coins[0].asset !== 'THOR.RUNE') {
         await storeRecord(redis, key, {
-            type:       'withdrawal',
+            type:       'Withdrawal',
             sellAmount: action.out[0].coins[0].amount / 100000000,
             sellCurr:   token(action.out[0].coins[0].asset),
             ...actionFee(action, token(action.out[0].coins[0].asset)),
@@ -353,7 +351,7 @@ export const logLPTrade = async (redis, key, buyAmount, buyCurr, sellAmount, sel
     const date = formatDate(action.date);
 
     await storeRecord(redis, key, {
-        type: 'trade',
+        type: 'Trade',
         buyAmount:  buyAmount,
         buyCurr:    buyCurr,
         sellAmount: sellAmount,
@@ -372,7 +370,7 @@ export const logLPWithdraw = async (redis, key, sellAmount, sellCurr, action, sk
     const date = formatDate(action.date);
 
     await storeRecord(redis, key, {
-        type:       'withdrawal',
+        type:       'Withdrawal',
         sellAmount: sellAmount,
         sellCurr:   sellCurr,
         ...actionFee(action, sellCurr, skipFee),
@@ -385,7 +383,7 @@ export const logLPIncome = async (redis, key, buyAmount, buyCurr, action, skipFe
     const date = formatDate(action.date);
 
     await storeRecord(redis, key, {
-        type: 'income',
+        type: 'Income',
         buyAmount:  buyAmount,
         buyCurr:    buyCurr,
         ...actionFee(action, buyCurr, skipFee),
@@ -397,7 +395,7 @@ export const logLPLoss = async (redis, key, sellAmount, sellCurr, action, skipFe
     const date = formatDate(action.date);
 
     await storeRecord(redis, key, {
-        type: 'loss',
+        type: 'Lost',
         sellAmount: sellAmount,
         sellCurr:   sellCurr,
         ...actionFee(action, sellCurr, skipFee),
@@ -426,7 +424,7 @@ export const logDeposit = async (redis, key, action) => {
     // then a "withdrawal" transaction for each asset sent into the pool
     for (const sent of action.in) {
         await storeRecord(redis, key, {
-            type:       'withdrawal',
+            type:       'Withdrawal',
             sellAmount: sent.coins[0].amount / 100000000,
             sellCurr:   token(sent.coins[0].asset),
             comment:    'Sent to Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
@@ -438,7 +436,7 @@ export const logDeposit = async (redis, key, action) => {
     // then (optionally), a "non-taxible income" for the liquidity units
     if (detailedLP) {
         await storeRecord(redis, key, {
-            type:      'non-taxable income',
+            type:      'Income (non taxable)',
             buyAmount: units,
             buyCurr:   token(action.pools[0]) + '-RUNE',
             comment:   'Sent to Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
@@ -480,7 +478,7 @@ export const logWithdraw = async (redis, key, action) => {
     // if desired, a "withdrawal" of the LP Units
     if (detailedLP) {
         await storeRecord(redis, key, {
-            type:       'non-taxable expense',
+            type:       'Expense (non taxable)',
             sellAmount: basis.LP,
             sellCurr:   token(action.pools[0]) + '-RUNE',
             comment:    'Received from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
@@ -492,7 +490,7 @@ export const logWithdraw = async (redis, key, action) => {
     // the rune withdraw request transaction fee will be included in the first "deposit"
     if (basis.RUNE > 0) {
         await storeRecord(redis, key, {
-            type:      'deposit',
+            type:      'Deposit',
             buyAmount: basis.RUNE,
             buyCurr:   'RUNE',
             ...actionFee(action, 'RUNE'),
@@ -502,7 +500,7 @@ export const logWithdraw = async (redis, key, action) => {
     }
     if (basis[asset] > 0) {
         await storeRecord(redis, key, {
-            type:      'deposit',
+            type:      'Deposit',
             buyAmount: basis[asset],
             buyCurr:   asset,
             ...actionFee(action, 'RUNE', (basis.RUNE > 0)),
@@ -671,7 +669,7 @@ export const logToWallet = async (redis, key, action) => {
 
         if (sent.coins[0].asset !== 'THOR.RUNE') {
             await storeRecord(redis, key, {
-                type:      'deposit',
+                type:      'Deposit',
                 buyAmount: coins[token(sent.coins[0].asset)],
                 buyCurr:   token(sent.coins[0].asset),
                 date:      date,

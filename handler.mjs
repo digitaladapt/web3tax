@@ -12,7 +12,11 @@ export const submitAddresses = async (event) => {
         wallets = normalizeAddresses(event.queryStringParameters);
         //console.log(wallets);
     } catch (errors) {
-        return formatError('Invalid Wallet Address(es) provided: ' + errors.join(', '));
+        return formatError('Invalid Wallet Address(es) Provided: ' + errors.join(', '));
+    }
+
+    if (wallets.length < 1) {
+        return formatError('No Wallet Addresses Provided');
     }
 
     const key = sha256(wallets);
@@ -21,7 +25,7 @@ export const submitAddresses = async (event) => {
 
     if (await redis.exists(key + '_status')) {
         await redis.quit();
-        return formatSuccess({key: key, message: 'Processing Already Running'});
+        return formatSuccess({key: key, message: 'Process Already Running'});
     }
 
     // running this in the background doesn't seem to work, so we'll wait
@@ -32,7 +36,6 @@ export const submitAddresses = async (event) => {
 
 export const getStatus = async (event) => {
     const key = event.queryStringParameters.key ?? null;
-    // also get any options like format
 
     const redis = await getRedis();
 
@@ -60,7 +63,6 @@ export const fetchReport = async (event) => {
         const transactions = await redis.lRange(key + '_record', 0, -1);
         await redis.quit();
 
-        // TODO from here, what do we do to make this the right format for koinly...
         let keys  = ['date', 'sellAmount', 'sellCurr', 'buyAmount', 'buyCurr', 'fee', 'feeCurr', 'netAmount', 'netCurr', 'type', 'comment', 'txID'];
         let base  = { netAmount: null, netCuur: null };
         let lines = ['Date,Sent Amount,Sent Currency,Received Amount,Received Currency,Fee Amount,Fee Currency,Net Worth Amount,Net Worth Currency,Label,Description,TxHash'];
@@ -105,7 +107,6 @@ export const fetchReport = async (event) => {
 
 export const purgeReport = async (event) => {
     const key = event.queryStringParameters.key ?? null;
-    // also get any options like format
 
     const redis = await getRedis();
 

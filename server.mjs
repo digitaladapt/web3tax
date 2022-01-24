@@ -70,7 +70,7 @@ indexPage = `<!DOCTYPE html>
     <title>ThorChain Tax Calculator</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">
 </head>
-<body style="background-color: #ebfffc;">
+<body style="background-color: #eff5fb;">
     <section class="section">
         <div class="container">
             <div class="columns is-desktop">
@@ -105,7 +105,7 @@ indexPage = `<!DOCTYPE html>
                                 </div>
                             </div>
                         </form>
-                        <div class="taxResults is-hidden notification is-primary is-light">
+                        <div class="taxResults is-hidden notification is-primary is-light" style="margin-top: 1em;">
                             <form class="taxDownload" method="get" action="/report">
                                 <input type="hidden" name="key" class="taxKey">
                                 <div class="field"><div class="control">

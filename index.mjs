@@ -36,6 +36,13 @@ const answer = await handler.submitAddresses({ queryStringParameters: {
     ltcD:  'ltc1qelw95yrud59n3pyft44vnhl4r7w56v6y3uwths',
     bchD:  'qr4a2zp2p30sjkzad2zpdmnq33e86g3k3uhu2yaa0e',
     thorD: 'thor1wj59g6f5t9dpduhfx7su5ye6zucq44tujy3e4n',
+    // star
+    ethE:  '0x165d707704716b02c050935F8Ce6E0429C9829e6',
+    btcE:  'bc1ql7a704xh4ptzcvm8lx6r8hwxcmau09dul6yh7y',
+    bnbE:  'bnb1v54rp3w9h2hlresmvl0msf4vycnvnuc7nyp6cr',
+    ltcE:  'ltc1qzw06k68yesj62ja0z9p4s527et496tdtstxvs5',
+    bchE:  'qzcxt5hl30yk3w052n3x6wjvky9rwn0p6guz95qmje',
+    thorE: 'thor1vkevvt4u0t7yra4xfk79hy7er38462w8yszx8y',
 }});
 
 const key = JSON.parse(answer.body).key;

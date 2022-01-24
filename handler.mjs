@@ -65,8 +65,12 @@ export const fetchReport = async (event) => {
         let base  = { netAmount: null, netCuur: null };
         let lines = ['Date,Sent Amount,Sent Currency,Received Amount,Received Currency,Fee Amount,Fee Currency,Net Worth Amount,Net Worth Currency,Label,Description,TxHash'];
         // re-categorize with the correct keywords
-        let fix   = { find: /,trade,|,deposit,|,withdrawal,|,income,|,loss,/g, replace: (found) => {
+        let fix   = { find: /,Withdrawal,Sent|,Deposit,Received|,Trade,|,Deposit,|,Withdrawal,|,Income,|,Lost,/g, replace: (found) => {
             switch (found) {
+                case ',Withdrawal,Sent': // label depends on description
+                    return ',to_pool,Sent';
+                case ',Deposit,Received': // label depends on description
+                    return ',from_pool,Received';
                 case ',Trade,':
                 case ',Deposit,':
                 case ',Withdrawal,':

@@ -64,7 +64,7 @@ do {
 
 const report = await handler.fetchReport({ queryStringParameters: {
     key: key,
-    //format: 'cointracking',
+    format: 'cointracking',
 }});
 
 const output = report.body;

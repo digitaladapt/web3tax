@@ -9,9 +9,13 @@ let detailedLP = false;
 let printDetails = false; // for debugging
 
 // format given date as "YYYY-MM-DD HH:MM:SS"
-export const formatDate = (date) => {
+export const formatDate = (date, offset) => {
+    if (typeof offset !== 'number') {
+        offset = 0;
+    }
     // date starts as unix-timestamp in nano-seconds
-    date = new Date(Number(date) / 1000000);
+    // plus an offset in seconds
+    date = new Date((Number(date) / 1000000) + (offset * 1000));
 
     return date.getFullYear() + "-" + (date.getMonth() < 9 ? "0" : "") + (date.getMonth() + 1) + "-" + (date.getDate() < 10 ? "0" : "") + date.getDate() + " " + (date.getHours() < 10 ? "0" : "") + date.getHours() + ":" + (date.getMinutes() < 10 ? "0" : "") + date.getMinutes() + ":" + (date.getSeconds() < 10 ? "0" : "") + date.getSeconds();
 }
@@ -321,8 +325,6 @@ export const actionFee = (action, asset, skipFee) => {
 };
 
 export const logTrade = async (redis, key, action) => {
-    const date = formatDate(action.date);
-
     await logToWallet(redis, key, action);
 
     await storeRecord(redis, key, {
@@ -332,7 +334,7 @@ export const logTrade = async (redis, key, action) => {
         sellAmount: action.in[0].coins[0].amount / 100000000,
         sellCurr:   token(action.in[0].coins[0].asset),
         ...actionFee(action),
-        date:       date,
+        date:       formatDate(action.date),
     });
 
     if (action.out[0].coins[0].asset !== 'THOR.RUNE') {
@@ -341,7 +343,7 @@ export const logTrade = async (redis, key, action) => {
             sellAmount: action.out[0].coins[0].amount / 100000000,
             sellCurr:   token(action.out[0].coins[0].asset),
             ...actionFee(action, token(action.out[0].coins[0].asset)),
-            date:       date,
+            date:       formatDate(action.date, 1),
             txID:       action.out[0].txID,
         });
     }
@@ -367,7 +369,7 @@ export const logLPTrade = async (redis, key, buyAmount, buyCurr, sellAmount, sel
 };
 
 export const logLPWithdraw = async (redis, key, sellAmount, sellCurr, action, skipFee) => {
-    const date = formatDate(action.date);
+    const date = formatDate(action.date, 2);
 
     await storeRecord(redis, key, {
         type:       'Withdrawal',
@@ -380,25 +382,27 @@ export const logLPWithdraw = async (redis, key, sellAmount, sellCurr, action, sk
 };
 
 export const logLPIncome = async (redis, key, buyAmount, buyCurr, action, skipFee) => {
-    const date = formatDate(action.date);
+    const date = formatDate(action.date, 1);
 
     await storeRecord(redis, key, {
         type: 'Income',
         buyAmount:  buyAmount,
         buyCurr:    buyCurr,
         ...actionFee(action, buyCurr, skipFee),
+        comment:    'Profit from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
         date:       date,
     });
 };
 
 export const logLPLoss = async (redis, key, sellAmount, sellCurr, action, skipFee) => {
-    const date = formatDate(action.date);
+    const date = formatDate(action.date, 1);
 
     await storeRecord(redis, key, {
         type: 'Lost',
         sellAmount: sellAmount,
         sellCurr:   sellCurr,
         ...actionFee(action, sellCurr, skipFee),
+        comment:    'Loss from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
         date:       date,
     });
 };
@@ -416,8 +420,6 @@ export const outMatch = (action, asset) => {
 // so that "BNB.ETH-1C9" and "ETH.ETH" are separate, instead of both being simply "ETH"
 const pooled = {};
 export const logDeposit = async (redis, key, action) => {
-    const date = formatDate(action.date);
-
     const units = await logToWallet(redis, key, action);
     //console.log(pooled);
 
@@ -429,7 +431,7 @@ export const logDeposit = async (redis, key, action) => {
             sellCurr:   token(sent.coins[0].asset),
             comment:    'Sent to Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
             ...actionFee(action, token(sent.coins[0].asset)),
-            date:       date,
+            date:       formatDate(action.date),
         });
     }
 
@@ -440,15 +442,13 @@ export const logDeposit = async (redis, key, action) => {
             buyAmount: units,
             buyCurr:   token(action.pools[0]) + '-RUNE',
             comment:   'Sent to Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
-            date:      date,
+            date:      formatDate(action.date, 1),
         });
     }
 };
 
 export const logWithdraw = async (redis, key, action) => {
     //printDetails = true;
-
-    const date = formatDate(action.date);
 
     // the nice name of the token asset in the pool alongside RUNE
     const asset = token(action.pools[0]);
@@ -482,7 +482,7 @@ export const logWithdraw = async (redis, key, action) => {
             sellAmount: basis.LP,
             sellCurr:   token(action.pools[0]) + '-RUNE',
             comment:    'Received from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
-            date:       date,
+            date:       formatDate(action.date, -2),
         });
     }
 
@@ -495,7 +495,7 @@ export const logWithdraw = async (redis, key, action) => {
             buyCurr:   'RUNE',
             ...actionFee(action, 'RUNE'),
             comment:    'Received from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
-            date:      date,
+            date:      formatDate(action.date, -1),
         });
     }
     if (basis[asset] > 0) {
@@ -505,7 +505,7 @@ export const logWithdraw = async (redis, key, action) => {
             buyCurr:   asset,
             ...actionFee(action, 'RUNE', (basis.RUNE > 0)),
             comment:    'Received from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
-            date:      date,
+            date:      formatDate(action.date, -1),
         });
     }
 
@@ -661,7 +661,7 @@ export const calculateBasis = (action) => {
 
 // for "addLiquidity" will return number of LiquidityUnits added, otherwise null
 export const logToWallet = async (redis, key, action) => {
-    const date = formatDate(action.date);
+    const date = formatDate(action.date, -1);
     const coins = {};
 
     for (const sent of action.in) {

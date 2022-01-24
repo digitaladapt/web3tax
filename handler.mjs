@@ -61,17 +61,30 @@ export const fetchReport = async (event) => {
         await redis.quit();
 
         // TODO from here, what do we do to make this the right format for koinly...
-        let keys  = [];
-        let base  = {};
-        let lines = [''];
-        let fix   = { find: '', replace: '' };
+        let keys  = ['date', 'sellAmount', 'sellCurr', 'buyAmount', 'buyCurr', 'fee', 'feeCurr', 'netAmount', 'netCurr', 'type', 'comment', 'txID'];
+        let base  = { netAmount: null, netCuur: null };
+        let lines = ['Date,Sent Amount,Sent Currency,Received Amount,Received Currency,Fee Amount,Fee Currency,Net Worth Amount,Net Worth Currency,Label,Description,TxHash'];
+        // re-categorize with the correct keywords
+        let fix   = { find: /,trade,|,deposit,|,withdrawal,|,income,|,loss,/g, replace: (found) => {
+            switch (found) {
+                case ',trade,':
+                case ',deposit,':
+                case ',withdrawal,':
+                    return ',,';
+                case ',income,':
+                    return ',realized gain,';
+                case ',loss,':
+                    return ',lost,';
+            }
+        }};
 
         switch (format) {
             case 'cointracking':
                 keys  = ['type', 'buyAmount', 'buyCurr', 'sellAmount', 'sellCurr', 'fee', 'feeCurr', 'exchange', 'tradeGroup', 'comment', 'date', 'txID'];
                 base  = { exchange: 'ThorChain' };
                 lines = ['Type,Buy Amount,Buy Currency,Sell Amount,Sell Currency,Fee,Fee Currency,Exchange,Trade-Group,Comment,Date,Tx-ID'];
-                fix   = { find: '', replace: '' };
+                // DD.MM.YYYY date format
+                fix   = { find: /,(\d{4})-(\d{2})-(\d{2}) /g, replace: ",$3.$2.$1 " };
                 break;
         }
 

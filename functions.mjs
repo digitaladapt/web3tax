@@ -92,6 +92,11 @@ export const normalizeAddresses = (addresses) => {
 
     loop:
     for (let [type, address] of Object.entries(addresses)) {
+        // ignore empty addresses
+        if (address.length < 1) {
+            continue;
+        }
+
         switch (true) {
             case type.startsWith('eth'):
                 // ether /^0x[a-f0-9]{40}$/

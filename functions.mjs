@@ -191,14 +191,14 @@ export const runProcess = async (redis, key, wallets) => {
             if (firstRow) {
                 firstRow = false;
                 //console.log('set data-expire');
-                await redis.expire(key, await redis.ttl(key + '_status'));
+                await redis.expire(key, 3600);
             }
         }, async (count) => {
             theCount = count;
             //console.log('setting-count');
             await redis.set(key + '_count', count);
             await redis.set(key + '_status', 'Downloading ' + Math.min((thePage + 1) * process.env.MIDGARD_LIMIT, count) + ' of ' + count);
-            await redis.expire(key + '_count', await redis.ttl(key + '_status'));
+            await redis.expire(key + '_count', 3600);
         });
         thePage++;
     } while (thePage * process.env.MIDGARD_LIMIT < theCount);
@@ -701,7 +701,7 @@ export const storeRecord = async (redis, key, record) => {
     if (firstRecord) {
         firstRecord = false;
         //console.log('set record-expire');
-        await redis.expire(key + '_record', await redis.ttl(key + '_status'));
+        await redis.expire(key + '_record', 3600);
     }
 };
 

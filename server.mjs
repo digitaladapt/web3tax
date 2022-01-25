@@ -112,6 +112,7 @@ indexPage = `<!DOCTYPE html>
                                     <label class="label">CSV Format</label>
                                     <div class="select is-success"><select name="format">
                                         <option value="koinly">Koinly</option>
+                                        <option value="cointracker">CoinTracker</option>
                                         <option value="cointracking">CoinTracking</option>
                                     </select></div>
                                 </div></div><div class="field"><div class="control">

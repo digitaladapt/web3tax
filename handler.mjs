@@ -92,6 +92,28 @@ export const fetchReport = async (event) => {
                 // DD.MM.YYYY date format
                 fix   = { find: /,(\d{4})-(\d{2})-(\d{2}) /g, replace: ",$3.$2.$1 " };
                 break;
+            case 'cointracker':
+                keys  = ['date', 'buyAmount', 'buyCurr', 'sellAmount', 'sellCurr', 'fee', 'feeCurr', 'type'];
+                base  = {};
+                lines = ['Date,Received Quantity,Received Currency,Sent Quantity,Sent Currency,Fee Amount,Fee Currency,Tag'];
+                // MM/DD/YYYY date format
+                // re-categorize with the correct keywords
+                fix   = { find: /(\d{4})-(\d{2})-(\d{2}) |,Trade|,Deposit|,Withdrawal|,Income|,Lost/g, replace: (found) => {
+                    if (/(\d{4})-(\d{2})-(\d{2}) /.test(found)) {
+                        return found.replace(/(\d{4})-(\d{2})-(\d{2}) /, "$2/$3/$1 ");
+                    }
+                    switch (found) {
+                        case ',Trade':
+                        case ',Deposit':
+                        case ',Withdrawal':
+                            return ',';
+                        case ',Income':
+                            return ',staked';
+                        case ',Lost':
+                            return ',lost';
+                    }
+                }};
+                break;
         }
 
         for (const record of transactions) {

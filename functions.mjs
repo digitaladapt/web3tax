@@ -4,8 +4,6 @@ import fetch from 'node-fetch';
 import { createClient } from 'redis';
 import crypto from 'crypto';
 
-// FUTURE TODO, make configurable, and allow it to be set to true conditionally
-let detailedLP = false;
 let printDetails = false; // for debugging
 
 // format given date as "YYYY-MM-DD HH:MM:SS"
@@ -89,8 +87,8 @@ export const midgard = async (wallets, pagination, addAction, setCount) => {
 // returns valid addresses in normalized format
 // takes object, returns an array
 export const normalizeAddresses = (addresses) => {
-    let wallets = [];
-    let errors  = [];
+    const wallets = [];
+    const errors  = [];
 
     loop:
     for (let [type, address] of Object.entries(addresses)) {
@@ -163,6 +161,9 @@ export const normalizeAddresses = (addresses) => {
                     continue loop;
                 }
                 break;
+            case type.startsWith('opt-'):
+                // disregard options
+                continue loop;
         }
         errors.push(address);
     }
@@ -175,15 +176,40 @@ export const normalizeAddresses = (addresses) => {
     return wallets;
 };
 
+export const normalizeConfig = (options) => {
+    const config = {
+        // REMEMBER: add *ALL* defaults here
+        detailedLP:      false,
+        includeUpgrades: false,
+    };
+
+    for (let [type, option] of Object.entries(options)) {
+        // ignore empty options
+        if (option.length < 1 || !type.startsWith('opt-')) {
+            continue;
+        }
+
+        switch (type) {
+            case 'opt-separate':
+                config.includeUpgrades = Boolean(option);
+                break;
+            // REMEMBER: add *ALL* defaults to config init
+        }
+    }
+
+    // no need to sort config, since properties are statically defined
+    return config;
+};
+
 // download the results, and calculate the report
-export const runProcess = async (redis, key, wallets) => {
+export const runProcess = async (redis, key, wallets, config) => {
     //console.log('starting to run the process');
     let firstRow = true;
     let theCount = -1;
     let thePage  = 0;
 
     await redis.set(key + '_status', 'Starting to Download Transactions');
-    await redis.expire(key + '_status', 7200);
+    await redis.expire(key + '_status', process.env.TTL);
     do {
         await midgard(wallets, thePage, async (row) => {
             //console.log('adding-row');
@@ -191,21 +217,21 @@ export const runProcess = async (redis, key, wallets) => {
             if (firstRow) {
                 firstRow = false;
                 //console.log('set data-expire');
-                await redis.expire(key, 7200);
+                await redis.expire(key, process.env.TTL);
             }
         }, async (count) => {
             theCount = count;
             //console.log('setting-count');
             await redis.set(key + '_count', count);
             await redis.set(key + '_status', 'Downloading ' + Math.min((thePage + 1) * process.env.MIDGARD_LIMIT, count) + ' of ' + count);
-            await redis.expire(key + '_count', 7200);
-            await redis.expire(key + '_status', 7200);
+            await redis.expire(key + '_count', process.env.TTL);
+            await redis.expire(key + '_status', process.env.TTL);
         });
         thePage++;
     } while (thePage * process.env.MIDGARD_LIMIT < theCount);
 
     await redis.set(key + '_status', 'Now Processing Transactions');
-    await redis.expire(key + '_status', 7200);
+    await redis.expire(key + '_status', process.env.TTL);
     let rowNumber = 0;
 
     //console.log('--------------');
@@ -217,7 +243,7 @@ export const runProcess = async (redis, key, wallets) => {
     for (const row of await redis.zRange(key, 0, 9999999999999)) {
         rowNumber++;
         await redis.set(key + '_status', 'Processing ' + rowNumber + ' of ' + theCount);
-        await redis.expire(key + '_status', 7200);
+        await redis.expire(key + '_status', process.env.TTL);
 
         const action = JSON.parse(row);
 
@@ -266,13 +292,16 @@ export const runProcess = async (redis, key, wallets) => {
 
         switch (action.type) {
             case 'swap':
-                await logTrade(redis, key, action);
+                await logTrade(redis, key, action, config);
                 break;
             case 'addLiquidity':
-                await logDeposit(redis, key, action);
+                await logDeposit(redis, key, action, config);
                 break;
             case 'withdraw':
-                await logWithdraw(redis, key, action);
+                await logWithdraw(redis, key, action, config);
+                break;
+            case 'switch':
+                await logUpgrade(redis, key, action, config);
                 break;
         }
 
@@ -280,7 +309,7 @@ export const runProcess = async (redis, key, wallets) => {
     }
 
     await redis.set(key + '_status', 'Completed');
-    await redis.expire(key + '_status', 7200);
+    await redis.expire(key + '_status', process.env.TTL);
     console.log('completed|' + Date.now() + '|' + key);
 
     await redis.quit();
@@ -290,7 +319,7 @@ export const runProcess = async (redis, key, wallets) => {
 
 // asset, if provided, will scope down the returned fee only if one matches the specified asset
 // use token(), asset should be like "RUNE" or "LTC"
-export const actionFee = (action, asset, skipFee) => {
+export const actionFee = (action, config, asset, skipFee) => {
     if (skipFee) {
         return {};
     }
@@ -302,10 +331,10 @@ export const actionFee = (action, asset, skipFee) => {
     for (const [type, entry] of Object.entries(action.metadata)) {
         if (entry.hasOwnProperty('networkFees')) {
             for (const fee of entry.networkFees) {
-                if (!asset || asset === token(fee.asset)) {
+                if (!asset || asset === token(fee.asset, config)) {
                     return {
                         fee:     Number((fee.amount / 100000000).toFixed(8)),
-                        feeCurr: token(fee.asset),
+                        feeCurr: token(fee.asset, config),
                     };
                 }
             }
@@ -328,16 +357,16 @@ export const actionFee = (action, asset, skipFee) => {
     return {};
 };
 
-export const logTrade = async (redis, key, action) => {
-    await logToWallet(redis, key, action);
+export const logTrade = async (redis, key, action, config) => {
+    await logToWallet(redis, key, action, config);
 
     await storeRecord(redis, key, {
         type: 'Trade',
         buyAmount:  action.out[0].coins[0].amount / 100000000,
-        buyCurr:    token(action.out[0].coins[0].asset),
+        buyCurr:    token(action.out[0].coins[0].asset, config),
         sellAmount: action.in[0].coins[0].amount / 100000000,
-        sellCurr:   token(action.in[0].coins[0].asset),
-        ...actionFee(action),
+        sellCurr:   token(action.in[0].coins[0].asset, config),
+        ...actionFee(action, config),
         date:       formatDate(action.date),
     });
 
@@ -345,15 +374,15 @@ export const logTrade = async (redis, key, action) => {
         await storeRecord(redis, key, {
             type:       'Withdrawal',
             sellAmount: action.out[0].coins[0].amount / 100000000,
-            sellCurr:   token(action.out[0].coins[0].asset),
-            ...actionFee(action, token(action.out[0].coins[0].asset)),
+            sellCurr:   token(action.out[0].coins[0].asset, config),
+            ...actionFee(action, config, token(action.out[0].coins[0].asset, config)),
             date:       formatDate(action.date, 1),
             txID:       action.out[0].txID,
         });
     }
 };
 
-export const logLPTrade = async (redis, key, buyAmount, buyCurr, sellAmount, sellCurr, action, skipFee, extraWithdraw) => {
+export const logLPTrade = async (redis, key, buyAmount, buyCurr, sellAmount, sellCurr, action, config, skipFee, extraWithdraw) => {
     const date = formatDate(action.date);
 
     await storeRecord(redis, key, {
@@ -362,58 +391,58 @@ export const logLPTrade = async (redis, key, buyAmount, buyCurr, sellAmount, sel
         buyCurr:    buyCurr,
         sellAmount: sellAmount,
         sellCurr:   sellCurr,
-        ...actionFee(action, buyCurr, skipFee),
+        ...actionFee(action, config, buyCurr, skipFee),
         date:       date,
     });
 
     if (buyCurr !== 'RUNE') {
         // notice, that we always skip the fee for the withdraw after the trade, since we've already handled it in the trade
-        await logLPWithdraw(redis, key, Number((buyAmount + (extraWithdraw ?? 0)).toFixed(8)), buyCurr, action, true);
+        await logLPWithdraw(redis, key, Number((buyAmount + (extraWithdraw ?? 0)).toFixed(8)), buyCurr, action, config, true);
     }
 };
 
-export const logLPWithdraw = async (redis, key, sellAmount, sellCurr, action, skipFee) => {
+export const logLPWithdraw = async (redis, key, sellAmount, sellCurr, action, config, skipFee) => {
     const date = formatDate(action.date, 2);
 
     await storeRecord(redis, key, {
         type:       'Withdrawal',
         sellAmount: sellAmount,
         sellCurr:   sellCurr,
-        ...actionFee(action, sellCurr, skipFee),
+        ...actionFee(action, config, sellCurr, skipFee),
         date:       date,
-        txID:       outMatch(action, sellCurr).txID,
+        txID:       outMatch(action, sellCurr, config).txID,
     });
 };
 
-export const logLPIncome = async (redis, key, buyAmount, buyCurr, action, skipFee) => {
+export const logLPIncome = async (redis, key, buyAmount, buyCurr, action, config, skipFee) => {
     const date = formatDate(action.date, 1);
 
     await storeRecord(redis, key, {
         type: 'Income',
         buyAmount:  buyAmount,
         buyCurr:    buyCurr,
-        ...actionFee(action, buyCurr, skipFee),
+        ...actionFee(action, config, buyCurr, skipFee),
         comment:    'Profit from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
         date:       date,
     });
 };
 
-export const logLPLoss = async (redis, key, sellAmount, sellCurr, action, skipFee) => {
+export const logLPLoss = async (redis, key, sellAmount, sellCurr, action, config, skipFee) => {
     const date = formatDate(action.date, 1);
 
     await storeRecord(redis, key, {
         type: 'Lost',
         sellAmount: sellAmount,
         sellCurr:   sellCurr,
-        ...actionFee(action, sellCurr, skipFee),
+        ...actionFee(action, config, sellCurr, skipFee),
         comment:    'Loss from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
         date:       date,
     });
 };
 
-export const outMatch = (action, asset) => {
+export const outMatch = (action, asset, config) => {
     for (const sent of action.out) {
-        if (token(sent.coins[0].asset) === asset) {
+        if (token(sent.coins[0].asset, config) === asset) {
             return sent;
         }
     }
@@ -423,8 +452,8 @@ export const outMatch = (action, asset) => {
 // remember: pooled uses the full pool asset name, not the nice token name
 // so that "BNB.ETH-1C9" and "ETH.ETH" are separate, instead of both being simply "ETH"
 const pooled = {};
-export const logDeposit = async (redis, key, action) => {
-    const units = await logToWallet(redis, key, action);
+export const logDeposit = async (redis, key, action, config) => {
+    const units = await logToWallet(redis, key, action, config);
     //console.log(pooled);
 
     // then a "withdrawal" transaction for each asset sent into the pool
@@ -432,33 +461,33 @@ export const logDeposit = async (redis, key, action) => {
         await storeRecord(redis, key, {
             type:       'Withdrawal',
             sellAmount: sent.coins[0].amount / 100000000,
-            sellCurr:   token(sent.coins[0].asset),
+            sellCurr:   token(sent.coins[0].asset, config),
             comment:    'Sent to Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
-            ...actionFee(action, token(sent.coins[0].asset)),
+            ...actionFee(action, config, token(sent.coins[0].asset, config)),
             date:       formatDate(action.date),
         });
     }
 
     // then (optionally), a "non-taxible income" for the liquidity units
-    if (detailedLP) {
+    if (config.detailedLP) {
         await storeRecord(redis, key, {
             type:      'Income (non taxable)',
             buyAmount: units,
-            buyCurr:   token(action.pools[0]) + '-RUNE',
+            buyCurr:   token(action.pools[0], config) + '-RUNE',
             comment:   'Sent to Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
             date:      formatDate(action.date, 1),
         });
     }
 };
 
-export const logWithdraw = async (redis, key, action) => {
+export const logWithdraw = async (redis, key, action, config) => {
     //printDetails = true;
 
     // the nice name of the token asset in the pool alongside RUNE
-    const asset = token(action.pools[0]);
+    const asset = token(action.pools[0], config);
 
     // calculated tokens, to determine cost-basis, currently just first-in-first-out, but should work on supporting more
-    const basis = calculateBasis(action);
+    const basis = calculateBasis(action, config);
 
     // coins actually received (note we initialize to zero, so we know the keys exist within the object)
     const coins = {
@@ -467,7 +496,7 @@ export const logWithdraw = async (redis, key, action) => {
     };
 
     for (const received of action.out) {
-        coins[token(received.coins[0].asset)] = received.coins[0].amount / 100000000;
+        coins[token(received.coins[0].asset, config)] = received.coins[0].amount / 100000000;
     }
 
     //console.log('basis:', basis, ', coins:', coins);
@@ -480,11 +509,11 @@ export const logWithdraw = async (redis, key, action) => {
     // the user can withdraw the value as just rune if desired, so to track it properly, a "trade" needs to be logged.
 
     // if desired, a "withdrawal" of the LP Units
-    if (detailedLP) {
+    if (config.detailedLP) {
         await storeRecord(redis, key, {
             type:       'Expense (non taxable)',
             sellAmount: basis.LP,
-            sellCurr:   token(action.pools[0]) + '-RUNE',
+            sellCurr:   token(action.pools[0], config) + '-RUNE',
             comment:    'Received from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
             date:       formatDate(action.date, -2),
         });
@@ -497,7 +526,7 @@ export const logWithdraw = async (redis, key, action) => {
             type:      'Deposit',
             buyAmount: basis.RUNE,
             buyCurr:   'RUNE',
-            ...actionFee(action, 'RUNE'),
+            ...actionFee(action, config, 'RUNE'),
             comment:    'Received from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
             date:      formatDate(action.date, -1),
         });
@@ -507,7 +536,7 @@ export const logWithdraw = async (redis, key, action) => {
             type:      'Deposit',
             buyAmount: basis[asset],
             buyCurr:   asset,
-            ...actionFee(action, 'RUNE', (basis.RUNE > 0)),
+            ...actionFee(action, config, 'RUNE', (basis.RUNE > 0)),
             comment:    'Received from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
             date:      formatDate(action.date, -1),
         });
@@ -517,47 +546,47 @@ export const logWithdraw = async (redis, key, action) => {
     // RUNE to ASSET or ASSET to RUNE   |||   RUNE to BOTH or ASSET to BOTH   |||   BOTH to RUNE or BOTH to ASSET
     if (basis.RUNE > 0 && coins.RUNE <= 0 && basis[asset] <= 0 && coins[asset] > 0) {
         //console.log('RUNE to ASSET');
-        await logLPTrade(redis, key, coins[asset], asset, basis.RUNE, 'RUNE', action);
+        await logLPTrade(redis, key, coins[asset], asset, basis.RUNE, 'RUNE', action, config);
     } else if (basis.RUNE <= 0 && coins.RUNE > 0 && basis[asset] > 0 && coins[asset] <= 0) {
         //console.log('ASSET to RUNE');
-        await logLPTrade(redis, key, coins.RUNE, 'RUNE', basis[asset], asset, action);
+        await logLPTrade(redis, key, coins.RUNE, 'RUNE', basis[asset], asset, action, config);
     } else if (basis.RUNE > 0 && coins.RUNE > 0 && basis[asset] <= 0 && coins[asset] > 0) {
         //console.log('RUNE to BOTH');
         // so we convert half the basis.RUNE into coins[asset], then income/loss the difference between half the basis.RUNE and the coins.RUNE
         // remember "half" doesn't always divide evenly, so we'll have to do basis-newbasis for the other half
         const newBasis = Number((basis.RUNE / 2).toFixed(8));
-        await logLPTrade(redis, key, coins[asset], asset, Number((basis.RUNE - newBasis).toFixed(8)), 'RUNE', action);
+        await logLPTrade(redis, key, coins[asset], asset, Number((basis.RUNE - newBasis).toFixed(8)), 'RUNE', action, config);
         if (newBasis < coins.RUNE) {
             // additionally we have a profit of RUNE to report as income
-            await logLPIncome(redis, key, Number((coins.RUNE - newBasis).toFixed(8)), 'RUNE', action, true);
+            await logLPIncome(redis, key, Number((coins.RUNE - newBasis).toFixed(8)), 'RUNE', action, config, true);
         } else if (newBasis > coins.RUNE) {
             // additionally we have a loss of RUNE to report as loss
-            await logLPLoss(redis, key, Number((newBasis - coins.RUNE).toFixed(8)), 'RUNE', action, true);
+            await logLPLoss(redis, key, Number((newBasis - coins.RUNE).toFixed(8)), 'RUNE', action, config, true);
         } // notice if exactly equal, no income/loss transaction to log
     } else if (basis.RUNE <= 0 && coins.RUNE > 0 && basis[asset] > 0 && coins[asset] > 0) {
         //console.log('ASSET to BOTH');
         // so we convert half the basis[asset] into coins.RUNE, then income/loss the difference between half the basis[asset] and the coins[asset]
         // remember "half" doesn't always divide evenly, so we'll have to do basis-newbasis for the other half
         const newBasis = Number((basis[asset] / 2).toFixed(8));
-        await logLPTrade(redis, key, coins.RUNE, 'RUNE', Number((basis[asset] - newBasis).toFixed(8)), asset, action);
+        await logLPTrade(redis, key, coins.RUNE, 'RUNE', Number((basis[asset] - newBasis).toFixed(8)), asset, action, config);
         if (newBasis < coins[asset]) {
             // additionally we have a profit of ASSET to report as income
-            await logLPIncome(redis, key, Number((coins[asset] - newBasis).toFixed(8)), asset, action, true);
+            await logLPIncome(redis, key, Number((coins[asset] - newBasis).toFixed(8)), asset, action, config, true);
         } else if (newBasis > coins[asset]) {
             // additionally we have a loss of ASSET to report as loss
-            await logLPLoss(redis, key, Number((newBasis - coins[asset]).toFixed(8)), asset, action, true);
+            await logLPLoss(redis, key, Number((newBasis - coins[asset]).toFixed(8)), asset, action, config, true);
         } // notice if exactly equal, no income/loss transaction to log
     } else if (basis.RUNE > 0 && coins.RUNE > 0 && basis[asset] > 0 && coins[asset] <= 0) {
         //console.log('BOTH to RUNE');
         // so we convert asset to rune, if basis.RUNE < coins.RUNE, just take the difference, as the output of the trade
         // however, if basis.RUNE >= coins.RUNE, we'll report all the losses
         if (basis.RUNE < coins.RUNE) {
-            await logLPTrade(redis, key, Number((coins.RUNE - basis.RUNE).toFixed(8)), 'RUNE', basis[asset], asset, action);
+            await logLPTrade(redis, key, Number((coins.RUNE - basis.RUNE).toFixed(8)), 'RUNE', basis[asset], asset, action, config);
         } else {
             // unlikely case: started with both assets, withdraw as RUNE, but got less RUNE then was deposited, multiple losses
-            await logLPLoss(redis, key, basis[asset], asset, action);
+            await logLPLoss(redis, key, basis[asset], asset, action, config);
             if (basis.RUNE > coins.RUNE) {
-                await logLPLoss(redis, key, Number((basis.RUNE - coins.RUNE).toFixed(8)), 'RUNE', action, true);
+                await logLPLoss(redis, key, Number((basis.RUNE - coins.RUNE).toFixed(8)), 'RUNE', action, config, true);
             }
         }
     } else if (basis.RUNE > 0 && coins.RUNE <= 0 && basis[asset] > 0 && coins[asset] > 0) {
@@ -566,51 +595,51 @@ export const logWithdraw = async (redis, key, action) => {
         // however, if basis[asset] >= coins[asset], we'll report all the losses
         if (basis[asset] < coins[asset]) {
             // note the final extra parameter, which adds back in the basis, for the withdrawal
-            await logLPTrade(redis, key, Number((coins[asset] - basis[asset]).toFixed(8)), asset, basis.RUNE, 'RUNE', action, false, basis[asset]);
+            await logLPTrade(redis, key, Number((coins[asset] - basis[asset]).toFixed(8)), asset, basis.RUNE, 'RUNE', action, config, false, basis[asset]);
         } else {
             // unlikely case: started with both assets, withdraw as asset, but got less asset then was deposited, multiple losses
-            await logLPLoss(redis, key, basis.RUNE, 'RUNE', action);
+            await logLPLoss(redis, key, basis.RUNE, 'RUNE', action, config);
             if (basis[asset] > coins[asset]) {
-                await logLPLoss(redis, key, Number((basis[asset] - coins[asset]).toFixed(8)), asset, action, true);
+                await logLPLoss(redis, key, Number((basis[asset] - coins[asset]).toFixed(8)), asset, action, config, true);
             }
         }
     } else if (basis.RUNE <= 0 && coins.RUNE <= 0 && basis[asset] > 0 && coins[asset] > 0) {
         //console.log('ASSET to ASSET');
         // simple profit/loss and withdrawal
         if (basis[asset] < coins[asset]) {
-            await logLPIncome(redis, key, Number((coins[asset] - basis[asset]).toFixed(8)), asset, action);
+            await logLPIncome(redis, key, Number((coins[asset] - basis[asset]).toFixed(8)), asset, action, config);
         } else if (basis[asset] > coins[asset]) {
-            await logLPLoss(redis, key, Number((basis[asset] - coins[asset]).toFixed(8)), asset, action);
+            await logLPLoss(redis, key, Number((basis[asset] - coins[asset]).toFixed(8)), asset, action, config);
         } // notice if exactly equal, no income/loss transaction to log
 
-        await logLPWithdraw(redis, key, coins[asset], asset, action, true);
+        await logLPWithdraw(redis, key, coins[asset], asset, action, config, true);
     } else if (basis.RUNE > 0 && coins.RUNE > 0 && basis[asset] <= 0 && coins[asset] <= 0) {
         //console.log('RUNE to RUNE');
         // simple profit/loss
         if (basis.RUNE < coins.RUNE) {
-            await logLPIncome(redis, key, Number((coins.RUNE - basis.RUNE).toFixed(8)), 'RUNE', action);
+            await logLPIncome(redis, key, Number((coins.RUNE - basis.RUNE).toFixed(8)), 'RUNE', action, config);
         } else if (basis.RUNE > coins.RUNE) {
-            await logLPLoss(redis, key, Number((basis.RUNE - coins.RUNE).toFixed(8)), 'RUNE', action);
+            await logLPLoss(redis, key, Number((basis.RUNE - coins.RUNE).toFixed(8)), 'RUNE', action, config);
         } // notice if exactly equal, no income/loss transaction to log
     } else if (basis.RUNE > 0 && coins.RUNE > 0 && basis[asset] > 0 && coins[asset] > 0) {
         //console.log('BOTH to BOTH');
 
         // simple profit/loss for RUNE
         if (basis.RUNE < coins.RUNE) {
-            await logLPIncome(redis, key, Number((coins.RUNE - basis.RUNE).toFixed(8)), 'RUNE', action);
+            await logLPIncome(redis, key, Number((coins.RUNE - basis.RUNE).toFixed(8)), 'RUNE', action, config);
         } else if (basis.RUNE > coins.RUNE) {
-            await logLPLoss(redis, key, Number((basis.RUNE - coins.RUNE).toFixed(8)), 'RUNE', action);
+            await logLPLoss(redis, key, Number((basis.RUNE - coins.RUNE).toFixed(8)), 'RUNE', action, config);
         } // notice if exactly equal, no income/loss transaction to log
 
 
         // simple profit/loss and withdrawal for ASSET
         if (basis[asset] < coins[asset]) {
-            await logLPIncome(redis, key, Number((coins[asset] - basis[asset]).toFixed(8)), asset, action);
+            await logLPIncome(redis, key, Number((coins[asset] - basis[asset]).toFixed(8)), asset, action, config);
         } else if (basis[asset] > coins[asset]) {
-            await logLPLoss(redis, key, Number((basis[asset] - coins[asset]).toFixed(8)), asset, action);
+            await logLPLoss(redis, key, Number((basis[asset] - coins[asset]).toFixed(8)), asset, action, config);
         } // notice if exactly equal, no income/loss transaction to log
 
-        await logLPWithdraw(redis, key, coins[asset], asset, action, true);
+        await logLPWithdraw(redis, key, coins[asset], asset, action, config, true);
     } else {
         console.log('Error: Unhandled Case: basis:', basis, 'coins:', coins);
     }
@@ -619,12 +648,12 @@ export const logWithdraw = async (redis, key, action) => {
     //console.log('---------------');
 };
 
-export const calculateBasis = (action) => {
+export const calculateBasis = (action, config) => {
     // liquidity-units actually removed, remember, this is a negative number
     const units = Number(action.metadata.withdraw.liquidityUnits) / 100000000;
 
     // the nice name of the token asset in the pool alongside RUNE
-    const asset = token(action.pools[0]);
+    const asset = token(action.pools[0], config);
 
     // calculated tokens, to determine cost-basis, currently just first-in-first-out, but should work on supporting more
     const basis = {LP: 0, RUNE: 0, [asset]: 0};
@@ -663,19 +692,42 @@ export const calculateBasis = (action) => {
     return basis;
 };
 
+export const logUpgrade = async (redis, key, action, config) => {
+    if (config.includeUpgrades) {
+        // log move to wallet before upgrade
+        await logToWallet(redis, key, action, config);
+
+        // optional, since people may or maynot want that
+        await storeRecord(redis, key, {
+            type: 'Trade',
+            buyAmount:  action.out[0].coins[0].amount / 100000000,
+            buyCurr:    token(action.out[0].coins[0].asset, config),
+            sellAmount: action.in[0].coins[0].amount / 100000000,
+            sellCurr:   token(action.in[0].coins[0].asset, config),
+            // no fees for upgrades (beyond external chain transaction fee)
+            comment:    'Upgraded ' + chainToken(action.in[0].coins[0].asset),
+            date:       formatDate(action.date),
+        });
+    } else {
+        // even if people don't consider the upgrade a trade, it still moved to this wallet
+        await logToWallet(redis, key, action, config, 'Upgraded ' + chainToken(action.in[0].coins[0].asset));
+    }
+};
+
 // for "addLiquidity" will return number of LiquidityUnits added, otherwise null
-export const logToWallet = async (redis, key, action) => {
+export const logToWallet = async (redis, key, action, config, comment) => {
     const date = formatDate(action.date, -1);
     const coins = {};
 
     for (const sent of action.in) {
-        coins[token(sent.coins[0].asset)] = sent.coins[0].amount / 100000000;
+        coins[token(sent.coins[0].asset, config)] = sent.coins[0].amount / 100000000;
 
         if (sent.coins[0].asset !== 'THOR.RUNE') {
             await storeRecord(redis, key, {
                 type:      'Deposit',
-                buyAmount: coins[token(sent.coins[0].asset)],
-                buyCurr:   token(sent.coins[0].asset),
+                buyAmount: coins[token(sent.coins[0].asset, config)],
+                buyCurr:   token(sent.coins[0].asset, config),
+                comment:   comment ?? null,
                 date:      date,
                 txID:      sent.txID,
             });
@@ -705,7 +757,7 @@ export const storeRecord = async (redis, key, record) => {
     if (firstRecord) {
         firstRecord = false;
         //console.log('set record-expire');
-        await redis.expire(key + '_record', 7200);
+        await redis.expire(key + '_record', process.env.TTL);
     }
 };
 
@@ -715,7 +767,16 @@ export const sha256 = (input) => {
 };
 
 // convert "BNB.BUSD-BD1" into "BUSD"
-export const token = (asset) => {
+export const token = (asset, config) => {
+    if (config.includeUpgrades) {
+        // in order to include the upgrades properly, we have to make non-native distinct
+        switch (asset) {
+            case 'ETH.RUNE-0X3155BA85D5F96B2D030A4966AF206230E46849CB':
+                return 'RUNE-ETH';
+            case 'BNB.RUNE-B1A':
+                return 'RUNE-B1A';
+        }
+    }
     return asset.split('.')[1].split('-')[0];
 };
 

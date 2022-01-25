@@ -1,6 +1,6 @@
 'use strict';
 
-import { formatCSV, formatError, formatSuccess, getRedis, midgard, normalizeAddresses, runProcess, sha256 } from './functions.mjs';
+import { formatCSV, formatError, formatSuccess, getRedis, midgard, normalizeConfig, normalizeAddresses, runProcess, sha256 } from './functions.mjs';
 
 // keep process promise in memory
 let processPromise = null;
@@ -19,7 +19,11 @@ export const submitAddresses = async (event) => {
         return formatError('No Wallet Addresses Provided');
     }
 
-    const key = sha256(wallets);
+    const config = normalizeConfig(event.queryStringParameters);
+
+    // we need to ensure the same wallets, with a different config will generate a new report
+    // since each option has an effect on the internal report built
+    const key = sha256({ wallets: wallets, config: config });
 
     const redis = await getRedis();
 
@@ -29,7 +33,7 @@ export const submitAddresses = async (event) => {
     }
 
     // running this in the background doesn't seem to work, so we'll wait
-    processPromise = runProcess(redis, key, wallets);
+    processPromise = runProcess(redis, key, wallets, config);
 
     return formatSuccess({key: key, message: 'Processing Started'});
 };

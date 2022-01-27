@@ -1,37 +1,56 @@
 'use strict';
 
-import { formatCSV, formatError, formatSuccess, getRedis, midgard, normalizeAddresses, runProcess, sha256 } from './functions.mjs';
+import fs from 'fs';
+import { formatText, formatError, formatSuccess, getRedis, normalizeConfig, normalizeAddresses, runProcess, sha256 } from './functions.mjs';
 
-// keep process promise in memory
-let processPromise = null;
+// endpoint: render the html
+export const loadIndex = async (event) => {
+    try {
+        return formatText(await fs.promises.readFile('./index.html'));
+    } catch (error) {
+        console.log(error);
+        return formatText('Unable to load page content');
+    }
+};
 
 // endpoint: kickoff process, start downloading actions from midgard into redis
-export const submitAddresses = async (event) => {
+export const submitAddresses = async (event, context, callback) => {
     let wallets;
     try {
         wallets = normalizeAddresses(event.queryStringParameters);
         //console.log(wallets);
     } catch (errors) {
-        return formatError('Invalid Wallet Address(es) Provided: ' + errors.join(', '));
+        callback(null, formatError('Invalid wallet address(es) provided: ' + errors.join(', ')));
+        return;
     }
 
     if (wallets.length < 1) {
-        return formatError('No Wallet Addresses Provided');
+        callback(null, formatError('No wallet addresses provided'));
+        return;
     }
 
-    const key = sha256(wallets);
+    const config = normalizeConfig(event.queryStringParameters);
+
+    // we need to ensure the same wallets, with a different config will generate a new report
+    // since each option has an effect on the internal report built
+    const key = process.env.REDIS_PREFIX + sha256({ wallets: wallets, config: config });
 
     const redis = await getRedis();
 
     if (await redis.exists(key + '_status')) {
         await redis.quit();
-        return formatSuccess({key: key, message: 'Process Already Running'});
+        callback(null, formatSuccess({key: key, message: 'Process already running'}));
+        return;
     }
 
-    // running this in the background doesn't seem to work, so we'll wait
-    processPromise = runProcess(redis, key, wallets);
+    callback(null, formatSuccess({key: key, message: 'Processing started'}));
 
-    return formatSuccess({key: key, message: 'Processing Started'});
+    // running this in the background doesn't seem to work, so we'll wait
+    await runProcess(redis, key, wallets, config).catch(async (error) => {
+        await redis.set(key + '_status', 'Error: ' + error);
+        await redis.expire(key + '_status', process.env.TTL);
+        await redis.quit();
+    });
 };
 
 export const getStatus = async (event) => {
@@ -43,18 +62,19 @@ export const getStatus = async (event) => {
         const message = await redis.get(key + '_status');
         await redis.quit();
         return formatSuccess({
-            ready:   (message === 'Completed'),
+            ready:   (message === 'Completed' ? 1 : (message.startsWith('Error') ? -1 : 0)),
             message: message,
         });
     }
 
     await redis.quit();
-    return formatError('Unknown Key');
+    return formatError('Unknown key');
 };
 
 export const fetchReport = async (event) => {
     const key = event.queryStringParameters.key ?? null;
     const format = event.queryStringParameters.format ?? null;
+    const group = event.queryStringParameters.group?.replace(/[^0-9A-Za-z ]+/g, '') ?? null;
 
     const redis = await getRedis();
 
@@ -87,10 +107,22 @@ export const fetchReport = async (event) => {
         switch (format) {
             case 'cointracking':
                 keys  = ['type', 'buyAmount', 'buyCurr', 'sellAmount', 'sellCurr', 'fee', 'feeCurr', 'exchange', 'tradeGroup', 'comment', 'date', 'txID'];
-                base  = { exchange: 'ThorChain' };
+                base  = { exchange: 'ThorChain', tradeGroup: group };
                 lines = ['Type,Buy Amount,Buy Currency,Sell Amount,Sell Currency,Fee,Fee Currency,Exchange,Trade-Group,Comment,Date,Tx-ID'];
                 // DD.MM.YYYY date format
-                fix   = { find: /,(\d{4})-(\d{2})-(\d{2}) /g, replace: ",$3.$2.$1 " };
+                fix   = { find: /,(\d{4})-(\d{2})-(\d{2}) |,THOR,|,RUNE-[ETHB1A]{3},/g, replace: (found) => {
+                    if (/,(\d{4})-(\d{2})-(\d{2}) /.test(found)) {
+                        return found.replace(/,(\d{4})-(\d{2})-(\d{2}) /, ",$3.$2.$1 ");
+                    }
+                    switch (found) {
+                        case ',THOR,':
+                            // the only "THOR" coin is THORSwap
+                            return ',THOR2,';
+                        case ',RUNE-B1A,':
+                        case ',RUNE-ETH,':
+                            return ',RUNE2,';
+                    }
+                }};
                 break;
             case 'cointracker':
                 keys  = ['date', 'buyAmount', 'buyCurr', 'sellAmount', 'sellCurr', 'fee', 'feeCurr', 'type'];
@@ -120,11 +152,11 @@ export const fetchReport = async (event) => {
             const transaction = JSON.parse(record);
             lines.push(keys.map(key => transaction[key] ?? base[key]).join(",").replace(fix.find, fix.replace));
         }
-        return formatCSV(lines.join('\r\n'));
+        return formatText(lines.join('\r\n'));
     }
 
     await redis.quit();
-    return formatError('Unknown Key');
+    return formatError('Unknown key');
 };
 
 export const purgeReport = async (event) => {
@@ -139,9 +171,9 @@ export const purgeReport = async (event) => {
         redis.del(key + '_record');
 
         await redis.quit();
-        return formatSuccess({message: 'Sucessfully Purged'});
+        return formatSuccess({message: 'Successfully purged key'});
     }
 
     await redis.quit();
-    return formatError('Unknown Key');
+    return formatError('Unknown key');
 };

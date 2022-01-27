@@ -1,5 +1,12 @@
 import * as handler from './handler.mjs';
 
+process.env.REDIS_ENDPOINT = 'localhost:6379';
+process.env.REDIS_PREFIX = 'test_';
+process.env.MIDGARD_LIMIT = 50;
+process.env.MIDGARD_URL = 'https://midgard.thorchain.info/v2/actions?limit=50&address={WALLETS}&offset={OFFSET}';
+process.env.PORT = 3000;
+process.env.TTL = 7200;
+
 const sleep = async (millis) => {
     return new Promise((resolve) => {
         setTimeout(resolve, millis)
@@ -7,13 +14,13 @@ const sleep = async (millis) => {
 }
 
 const purged = await handler.purgeReport({ queryStringParameters: {
-    key: 'da871c1f67623e442631a90b9f6614de0cd01e13e236a1c2153b26dc2d70da5e',
+    key: 'test_4592542aac6dc9c12c0dd8b7b86504e008dedeef7736749e042853ba397bb71a',
 }});
 
 console.log(purged);
 console.log('---------------------------------------------------------------');
 
-const answer = await handler.submitAddresses({ queryStringParameters: {
+await handler.submitAddresses({ queryStringParameters: {
     // zinc
     eth:  '0x0c85b035f138bBDe4f6D200C1c90dA7136427D4B',
     btc:  'bc1ql8sxnllxkhvxnke2lq5nrjqvng77r9cjpceckx',
@@ -43,32 +50,33 @@ const answer = await handler.submitAddresses({ queryStringParameters: {
     ltcE:  'ltc1qzw06k68yesj62ja0z9p4s527et496tdtstxvs5',
     bchE:  'qzcxt5hl30yk3w052n3x6wjvky9rwn0p6guz95qmje',
     thorE: 'thor1vkevvt4u0t7yra4xfk79hy7er38462w8yszx8y',
-}});
+}}, null, async (error, answer) => {
 
-const key = JSON.parse(answer.body).key;
+    const key = JSON.parse(answer.body).key;
 
-console.log(answer);
-console.log('---------------------------------------------------------------');
+    console.log(answer);
+    console.log('---------------------------------------------------------------');
 
-let theStatus = null;
-do {
-    await sleep(100);
+    let theStatus = null;
+    do {
+        await sleep(100);
 
-    theStatus = await handler.getStatus({ queryStringParameters: {
+        theStatus = await handler.getStatus({ queryStringParameters: {
+            key: key,
+        }});
+
+        console.log(theStatus);
+        console.log('---------------------------------------------------------------');
+    } while (! JSON.parse(theStatus.body).ready);
+
+    const report = await handler.fetchReport({ queryStringParameters: {
         key: key,
+        format: 'cointracking',
+        group: 'All Wallets',
     }});
 
-    console.log(theStatus);
+    const output = report.body;
+
+    console.log(output);
     console.log('---------------------------------------------------------------');
-} while (! JSON.parse(theStatus.body).ready);
-
-const report = await handler.fetchReport({ queryStringParameters: {
-    key: key,
-    format: 'cointracking',
-}});
-
-const output = report.body;
-
-console.log(output);
-console.log('---------------------------------------------------------------');
-
+});

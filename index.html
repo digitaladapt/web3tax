@@ -1,10 +1,21 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>ThorChain Tax Calculator</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">
+    <!-- Begin Icons, thanks to https://realfavicongenerator.net/ -->
+    <link rel="apple-touch-icon" sizes="180x180" href="https://www.digitaladapt.com/web3tax/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="https://www.digitaladapt.com/web3tax/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="https://www.digitaladapt.com/web3tax/favicon-16x16.png">
+    <link rel="manifest" href="https://www.digitaladapt.com/web3tax/site.webmanifest">
+    <link rel="mask-icon" href="https://www.digitaladapt.com/web3tax/safari-pinned-tab.svg" color="#02121d">
+    <link rel="shortcut icon" href="https://www.digitaladapt.com/web3tax/favicon.ico">
+    <meta name="msapplication-TileColor" content="#02121d">
+    <meta name="msapplication-config" content="https://www.digitaladapt.com/web3tax/browserconfig.xml">
+    <meta name="theme-color" content="#02121d">
+    <!-- End Icons -->
 </head>
 <body style="background-color: #eff5fb;">
     <section class="section">
@@ -16,7 +27,7 @@
                             ThorChain Tax Calculator
                         </h1>
                         <p class="subtitle">
-                            Generate import-ready CSV file of your blockchain transactions, just by entering your wallet addreses.
+                            Generate import-ready CSV file of your blockchain transactions, just by entering your wallet addresses.
                         </p>
                         <form class="taxForm">
                             <div class="field"><div class="control">
@@ -32,12 +43,17 @@
                             </div></div><div class="field"><div class="control">
                                 <label class="label">ETH  <input type="text" name="eth"  class="input" placeholder="0x..." autocomplete="on"></label>
                             </div></div><div class="field"><div class="control">
-                                <label class="label">DOGE <input type="text" name="doge" class="input" placeholder="coming soon" autocomplete="on" disabled></label>
-                            </div></div><div class="field is-grouped">
+                                <label class="label">DOGE <input type="text" name="doge" class="input" placeholder="D..." autocomplete="on"></label>
+                            </div></div><div class="field">
+                                <div class="control">
+                                    <label class="checkbox"><input type="checkbox" name="opt-separate"> Non-native RUNE as separate asset <span class="tag is-danger">causes import bugs on Koinly / CoinTracker</span></label>
+                                </div>
+                                <p class="help">If checked, upgrading your RUNE will be reported as a trade.</p>
+                            </div><div class="field is-grouped is-grouped-multiline">
                                 <div class="control">
                                     <button type="submit" class="button is-info taxGo">Generate Report</button>
                                 </div><div class="control">
-                                    <span class="button is-static is-info is-inverted taxStatus">Status: awaiting user input.</span>
+                                    <span class="button is-static is-info is-inverted taxStatus" style="border: none;">Status: awaiting user input.</span>
                                 </div>
                             </div>
                         </form>
@@ -45,12 +61,14 @@
                             <form class="taxDownload" method="get" action="/report">
                                 <input type="hidden" name="key" class="taxKey">
                                 <div class="field"><div class="control">
-                                    <label class="label">CSV Format</label>
-                                    <div class="select is-success"><select name="format">
-                                        <option value="koinly">Koinly</option>
+                                    <label class="label" for="formatID">CSV Format</label>
+                                    <div class="taxFormat select is-success"><select name="format" id="formatID">
                                         <option value="cointracker">CoinTracker</option>
-                                        <option value="cointracking">CoinTracking</option>
+                                        <option value="cointracking" class="showGroup">CoinTracking</option>
+                                        <option value="koinly">Koinly</option>
                                     </select></div>
+                                </div></div><div class="taxGroup field is-hidden"><div class="control">
+                                    <label class="label">TradeGroup (optional) <input type="text" name="group" class="input" autocomplete="on"></label>
                                 </div></div><div class="field"><div class="control">
                                     <button type="submit" class="button is-success taxGet">Download CSV</button>
                                 </div></div>
@@ -67,29 +85,29 @@
                             <div class="level-item has-text-centered">
                                 <figure>
                                   <figcaption>THOR</figcaption>
-                                  <img src="https://www.digitaladapt.com/thor.png">
+                                  <img src="https://www.digitaladapt.com/thor.png" alt="thor1vkevvt4u0t7yra4xfk79hy7er38462w8yszx8y">
                                 </figure>
                             </div><div class="level-item has-text-centered">
                                 <figure>
                                   <figcaption>BNB</figcaption>
-                                  <img src="https://www.digitaladapt.com/bnb.png">
+                                  <img src="https://www.digitaladapt.com/bnb.png" alt="bnb1v54rp3w9h2hlresmvl0msf4vycnvnuc7nyp6cr">
                                 </figure>
                             </div>
                         </div>
                         <ul>
-                            <li><strong>thor1vkevvt4u0t7yra4xfk79hy7er38462w8yszx8y</strong></li>
-                            <li><strong>bnb1v54rp3w9h2hlresmvl0msf4vycnvnuc7nyp6cr</strong></li>
-                            <li><strong>bc1ql7a704xh4ptzcvm8lx6r8hwxcmau09dul6yh7y</strong></li>
-                            <li><strong>ltc1qzw06k68yesj62ja0z9p4s527et496tdtstxvs5</strong></li>
-                            <li><strong>qzcxt5hl30yk3w052n3x6wjvky9rwn0p6guz95qmje</strong> (BCH)</li>
-                            <li><strong>0x165d707704716b02c050935F8Ce6E0429C9829e6</strong> (AVAX, BSC, ETH, FTM, etc.)</li>
-                            <li><strong>terra1t8magaxn4q6jllgx4hregjh4gtn2k96caqmd7p</strong></li>
-                            <li><strong>cosmos1wkzpd9uxftghyweh0dd4v58x727ugvqkp0khn5</strong></li>
+                            <li><strong>thor1vkevvt4u0t7yra4xf<wbr>k79hy7er38462w8yszx8y</strong></li>
+                            <li><strong>bnb1v54rp3w9h2hlresmvl<wbr>0msf4vycnvnuc7nyp6cr</strong></li>
+                            <li><strong>bc1ql7a704xh4ptzcvm8lx<wbr>6r8hwxcmau09dul6yh7y</strong></li>
+                            <li><strong>ltc1qzw06k68yesj62ja0z<wbr>9p4s527et496tdtstxvs5</strong></li>
+                            <li><strong>qzcxt5hl30yk3w052n3x6w<wbr>jvky9rwn0p6guz95qmje</strong> (BCH)</li>
+                            <li><strong>0x165d707704716b02c050<wbr>935F8Ce6E0429C9829e6</strong> (AVAX,&nbsp;BSC,&nbsp;ETH,&nbsp;FTM,&nbsp;etc.)</li>
+                            <li><strong>terra1t8magaxn4q6jllgx<wbr>4hregjh4gtn2k96caqmd7p</strong></li>
+                            <li><strong>cosmos1wkzpd9uxftghywe<wbr>h0dd4v58x727ugvqkp0khn5</strong></li>
                         </ul>
                     </div>
                     <div class="box content">
                         <h2>Give Feedback</h2>
-                        <p>If you have any thoughts, questions, or would like to report a bug, you can either get ahold of <a href="https://twitter.com/digitaladapt" target="_blank">me on Twitter</a>,
+                        <p>If you have any thoughts, questions, or would like to report a bug, you can either get hold of <a href="https://twitter.com/digitaladapt" target="_blank">me on Twitter</a>,
                             or you can also use <a href="https://docs.google.com/forms/d/e/1FAIpQLScIeyYEYAHw1fNXakh34ZBpfRv4mZHL0Hu2aCMNMj6PRwTDHQ/viewform" target="_blank">this Google Form</a>.</p> 
                     </div>
                 </div>
@@ -99,7 +117,7 @@
                     <div class="box content">
                         <h3>Legal</h3>
                         <p>While every attempt has been made to ensure the calculations are correct, use the data at your own risk.</p>
-                        <p>This is provided for informational purposes only. It does not constitute financial, tax or legal advice.</p>
+                        <p>This is provided for informational purposes only. It does not constitute financial, tax, or legal advice.</p>
                         <p>No warranty, and we will not be liable for any loss or damage of any nature.</p>
                     </div>
                 </div><div class="column">
@@ -125,13 +143,28 @@
         Zepto(($) => {
             let key = null;
 
-            $('.taxGo').on('click', (event) => {
+            // trade-group field appears or hides depending on what format is selected
+            const manageGroup = (event) => {
+                if ($(event.target.selectedOptions[0]).hasClass('showGroup')) {
+                    $('.taxGroup').removeClass('is-hidden');
+                } else {
+                    $('.taxGroup').addClass('is-hidden');
+                }
+            };
+            manageGroup({ target: document.getElementById('formatID') });
+            $('.taxFormat').on('change', manageGroup);
+
+            // handle submit addresses request
+            $('.taxGo').on('click', () => {
                 const updateStatus = () => {
-                    $.getJSON('https://web3tax.info/status?key=' + key, (theStatus) => {
+                    $.getJSON('//' + window.location.host + '/status?key=' + key, (theStatus) => {
+                        // update the status message
                         $('.taxStatus').text(theStatus.message);
                         if (theStatus.ready) {
-                            // system ready, show the download form
-                            $('.taxResults').removeClass('is-hidden');
+                            if (theStatus.ready >= 1) {
+                                // system ready, show the download form
+                                $('.taxResults').removeClass('is-hidden');
+                            }
                             $('.taxGo').removeClass('is-loading');
                         } else {
                             // wait half a second, and then check the status again
@@ -142,8 +175,8 @@
 
                 $('.taxGo').addClass('is-loading');
                 $('.taxStatus').text('Submitting Request...');
-                console.log($('.taxForm').serialize());
-                $.getJSON('https://web3tax.info/generate?' + $('.taxForm').serialize(), (response) => {
+                $.getJSON('//' + window.location.host + '/generate?' + $('.taxForm').serialize(), (response) => {
+                    // update the status message
                     $('.taxStatus').text(response.message);
                     if (response.status === 'success') {
                         // set the key

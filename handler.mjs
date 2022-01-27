@@ -74,6 +74,7 @@ export const getStatus = async (event) => {
 export const fetchReport = async (event) => {
     const key = event.queryStringParameters.key ?? null;
     const format = event.queryStringParameters.format ?? null;
+    const group = event.queryStringParameters.group?.replace(/[^0-9A-Za-z ]+/g, '') ?? null;
 
     const redis = await getRedis();
 
@@ -106,7 +107,7 @@ export const fetchReport = async (event) => {
         switch (format) {
             case 'cointracking':
                 keys  = ['type', 'buyAmount', 'buyCurr', 'sellAmount', 'sellCurr', 'fee', 'feeCurr', 'exchange', 'tradeGroup', 'comment', 'date', 'txID'];
-                base  = { exchange: 'ThorChain' };
+                base  = { exchange: 'ThorChain', tradeGroup: group };
                 lines = ['Type,Buy Amount,Buy Currency,Sell Amount,Sell Currency,Fee,Fee Currency,Exchange,Trade-Group,Comment,Date,Tx-ID'];
                 // DD.MM.YYYY date format
                 fix   = { find: /,(\d{4})-(\d{2})-(\d{2}) |,THOR,|,RUNE-[ETHB1A]{3},/g, replace: (found) => {

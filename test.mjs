@@ -72,6 +72,7 @@ await handler.submitAddresses({ queryStringParameters: {
     const report = await handler.fetchReport({ queryStringParameters: {
         key: key,
         format: 'cointracking',
+        group: 'All Wallets',
     }});
 
     const output = report.body;

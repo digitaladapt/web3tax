@@ -53,7 +53,7 @@
                                 <div class="control">
                                     <button type="submit" class="button is-info taxGo">Generate Report</button>
                                 </div><div class="control">
-                                    <span class="button is-static is-info is-inverted taxStatus">Status: awaiting user input.</span>
+                                    <span class="button is-static is-info is-inverted taxStatus" style="border: none;">Status: awaiting user input.</span>
                                 </div>
                             </div>
                         </form>
@@ -61,12 +61,14 @@
                             <form class="taxDownload" method="get" action="/report">
                                 <input type="hidden" name="key" class="taxKey">
                                 <div class="field"><div class="control">
-                                    <label class="label">CSV Format</label>
-                                    <div class="select is-success"><select name="format">
+                                    <label class="label" for="formatID">CSV Format</label>
+                                    <div class="taxFormat select is-success"><select name="format" id="formatID">
                                         <option value="cointracker">CoinTracker</option>
-                                        <option value="cointracking">CoinTracking</option>
+                                        <option value="cointracking" class="showGroup">CoinTracking</option>
                                         <option value="koinly">Koinly</option>
                                     </select></div>
+                                </div></div><div class="taxGroup field is-hidden"><div class="control">
+                                    <label class="label">TradeGroup (optional) <input type="text" name="group" class="input" autocomplete="on"></label>
                                 </div></div><div class="field"><div class="control">
                                     <button type="submit" class="button is-success taxGet">Download CSV</button>
                                 </div></div>
@@ -141,9 +143,22 @@
         Zepto(($) => {
             let key = null;
 
-            $('.taxGo').on('click', (event) => {
+            // trade-group field appears or hides depending on what format is selected
+            const manageGroup = (event) => {
+                if ($(event.target.selectedOptions[0]).hasClass('showGroup')) {
+                    $('.taxGroup').removeClass('is-hidden');
+                } else {
+                    $('.taxGroup').addClass('is-hidden');
+                }
+            };
+            manageGroup({ target: document.getElementById('formatID') });
+            $('.taxFormat').on('change', manageGroup);
+
+            // handle submit addresses request
+            $('.taxGo').on('click', () => {
                 const updateStatus = () => {
                     $.getJSON('//' + window.location.host + '/status?key=' + key, (theStatus) => {
+                        // update the status message
                         $('.taxStatus').text(theStatus.message);
                         if (theStatus.ready) {
                             if (theStatus.ready >= 1) {
@@ -161,6 +176,7 @@
                 $('.taxGo').addClass('is-loading');
                 $('.taxStatus').text('Submitting Request...');
                 $.getJSON('//' + window.location.host + '/generate?' + $('.taxForm').serialize(), (response) => {
+                    // update the status message
                     $('.taxStatus').text(response.message);
                     if (response.status === 'success') {
                         // set the key

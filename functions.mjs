@@ -710,7 +710,8 @@ export const logUpgrade = async (redis, key, action, config) => {
         });
     } else {
         // even if people don't consider the upgrade a trade, it still moved to this wallet
-        await logToWallet(redis, key, action, config, 'Upgraded ' + chainToken(action.in[0].coins[0].asset));
+        // FIXME ENABLE THE NEXT LINE AGAIN
+        //await logToWallet(redis, key, action, config, 'Upgraded ' + chainToken(action.in[0].coins[0].asset));
     }
 };
 

@@ -2,9 +2,6 @@
 
 import { formatCSV, formatError, formatSuccess, getRedis, midgard, normalizeConfig, normalizeAddresses, runProcess, sha256 } from './functions.mjs';
 
-// keep process promise in memory
-let processPromise = null;
-
 // endpoint: kickoff process, start downloading actions from midgard into redis
 export const submitAddresses = async (event) => {
     let wallets;
@@ -33,7 +30,11 @@ export const submitAddresses = async (event) => {
     }
 
     // running this in the background doesn't seem to work, so we'll wait
-    processPromise = runProcess(redis, key, wallets, config);
+    runProcess(redis, key, wallets, config).catch(async (error) => {
+        await redis.set(key + '_status', 'Error: ' + error);
+        await redis.expire(key + '_status', process.env.TTL);
+        await redis.quit();
+    });
 
     return formatSuccess({key: key, message: 'Processing Started'});
 };
@@ -47,7 +48,7 @@ export const getStatus = async (event) => {
         const message = await redis.get(key + '_status');
         await redis.quit();
         return formatSuccess({
-            ready:   (message === 'Completed'),
+            ready:   (message === 'Completed' ? 1 : (message.startsWith('Error') ? -1 : 0)),
             message: message,
         });
     }
@@ -94,7 +95,19 @@ export const fetchReport = async (event) => {
                 base  = { exchange: 'ThorChain' };
                 lines = ['Type,Buy Amount,Buy Currency,Sell Amount,Sell Currency,Fee,Fee Currency,Exchange,Trade-Group,Comment,Date,Tx-ID'];
                 // DD.MM.YYYY date format
-                fix   = { find: /,(\d{4})-(\d{2})-(\d{2}) /g, replace: ",$3.$2.$1 " };
+                fix   = { find: /,(\d{4})-(\d{2})-(\d{2}) |,THOR,|,RUNE-[ETHB1A]{3},/g, replace: (found) => {
+                    if (/,(\d{4})-(\d{2})-(\d{2}) /.test(found)) {
+                        return found.replace(/,(\d{4})-(\d{2})-(\d{2}) /, ",$3.$2.$1 ");
+                    }
+                    switch (found) {
+                        case ',THOR,':
+                            // the only "THOR" coin is THORSwap
+                            return ',THOR2,';
+                        case ',RUNE-B1A,':
+                        case ',RUNE-ETH,':
+                            return ',RUNE2,';
+                    }
+                }};
                 break;
             case 'cointracker':
                 keys  = ['date', 'buyAmount', 'buyCurr', 'sellAmount', 'sellCurr', 'fee', 'feeCurr', 'type'];

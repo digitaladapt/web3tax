@@ -80,7 +80,7 @@ export const midgard = async (wallets, pagination, addAction, setCount) => {
             await addAction(action);
         }
     }).catch((error) => {
-        console.log(error);
+        throw error;
     });
 };
 
@@ -157,6 +157,13 @@ export const normalizeAddresses = (addresses) => {
                 // thor /^thor[a-z0-9]{38,90}$/
                 address = address.toLowerCase();
                 if (/^thor[a-z0-9]{38,90}$/.test(address)) {
+                    wallets.push(address);
+                    continue loop;
+                }
+                break;
+            case type.startsWith('doge'):
+                // doge /^D[5-9A-HJ-NP-U][1-9A-HJ-NP-Za-km-z]{25,34}$/
+                if (/^D[5-9A-HJ-NP-U][1-9A-HJ-NP-Za-km-z]{25,34}$/.test(address)) {
                     wallets.push(address);
                     continue loop;
                 }
@@ -631,7 +638,6 @@ export const logWithdraw = async (redis, key, action, config) => {
             await logLPLoss(redis, key, Number((basis.RUNE - coins.RUNE).toFixed(8)), 'RUNE', action, config);
         } // notice if exactly equal, no income/loss transaction to log
 
-
         // simple profit/loss and withdrawal for ASSET
         if (basis[asset] < coins[asset]) {
             await logLPIncome(redis, key, Number((coins[asset] - basis[asset]).toFixed(8)), asset, action, config);
@@ -642,6 +648,7 @@ export const logWithdraw = async (redis, key, action, config) => {
         await logLPWithdraw(redis, key, coins[asset], asset, action, config, true);
     } else {
         console.log('Error: Unhandled Case: basis:', basis, 'coins:', coins);
+        throw 'system error during calculating withdrawal';
     }
 
     //printDetails = false;
@@ -660,7 +667,7 @@ export const calculateBasis = (action, config) => {
     do {
         // calculate the first-in-first-out rune/asset sent into the liquidity pools, so we can handle the accounting correctly
         // notice we round all math to exactly 8 places at every step, to ensure rounding errors aren't a problem
-        const deposit = pooled[action.pools[0]].shift();
+        const deposit = pooled[action.pools[0]]?.shift();
         if (deposit) {
             if (Number((deposit.LP + basis.LP + units).toFixed(8)) > 0) {
                 const percent = (deposit.LP + basis.LP + units) / deposit.LP;
@@ -684,7 +691,7 @@ export const calculateBasis = (action, config) => {
                 basis.RUNE   = Number((basis.RUNE   + (deposit.RUNE ?? 0)  ).toFixed(8));
             }
         } else {
-            console.log('Error: Liquidity Units Provided mismatch for pool: ' + action.pools[0]);
+            throw 'missing cost-basis for pool: ' + chainToken(action.pools[0]);
             break;
         }
     } while (Number((basis.LP + units).toFixed(8)) < 0);
@@ -710,8 +717,7 @@ export const logUpgrade = async (redis, key, action, config) => {
         });
     } else {
         // even if people don't consider the upgrade a trade, it still moved to this wallet
-        // FIXME ENABLE THE NEXT LINE AGAIN
-        //await logToWallet(redis, key, action, config, 'Upgraded ' + chainToken(action.in[0].coins[0].asset));
+        await logToWallet(redis, key, action, config, 'Upgraded ' + chainToken(action.in[0].coins[0].asset));
     }
 };
 

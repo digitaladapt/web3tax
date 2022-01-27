@@ -2,6 +2,7 @@
 
 while true; do \
 REDIS_ENDPOINT=localhost:6379 \
+REDIS_PREFIX='live_' \
 MIDGARD_LIMIT=50 \
 MIDGARD_URL='https://midgard.thorchain.info/v2/actions?limit=50&address={WALLETS}&offset={OFFSET}' \
 PORT=3000 \

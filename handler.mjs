@@ -23,7 +23,7 @@ export const submitAddresses = async (event) => {
 
     // we need to ensure the same wallets, with a different config will generate a new report
     // since each option has an effect on the internal report built
-    const key = sha256({ wallets: wallets, config: config });
+    const key = process.env.REDIS_PREFIX + sha256({ wallets: wallets, config: config });
 
     const redis = await getRedis();
 

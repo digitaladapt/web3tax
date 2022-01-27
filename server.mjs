@@ -27,7 +27,7 @@ const server = http.createServer((req, res) => {
             res.setHeader('Content-Type', 'application/json');
 			submitAddresses({
                 queryStringParameters: parsed.query,
-            }).then((output) => {
+            }, null, (error, output) => {
                 res.end(output.body);
             });
             break;

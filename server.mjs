@@ -70,4 +70,3 @@ fs.readFile('./index.html', (error, buffer) => {
     indexPage = buffer.toString();
     console.log('successfully loaded index.html');
 });
-

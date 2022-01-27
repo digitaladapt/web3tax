@@ -15,6 +15,17 @@ provider:
     REDIS_ENDPOINT:
       "Fn::Join": [":", ["Fn::GetAtt": [ServerlessElasticacheCluster, RedisEndpoint.Address], "Fn::GetAtt": [ServerlessElasticacheCluster, RedisEndpoint.Port]]]
 functions:
+  loadIndex:
+    handler: handler.loadIndex
+    vpc:
+      securityGroupIds:
+        - "Fn::GetAtt": [ServerlessSecurityGroup, GroupId]
+      subnetIds:
+        - Ref: ServerlessPrivateSubnetA
+    events:
+      - httpApi:
+          path: /
+          method: get
   submitAddresses:
     handler: handler.submitAddresses
     vpc:
@@ -25,6 +36,17 @@ functions:
     events:
       - httpApi:
           path: /generate
+          method: get
+  getStatus:
+    handler: handler.getStatus
+    vpc:
+      securityGroupIds:
+        - "Fn::GetAtt": [ ServerlessSecurityGroup, GroupId ]
+      subnetIds:
+        - Ref: ServerlessPrivateSubnetA
+    events:
+      - httpApi:
+          path: /status
           method: get
   fetchReport:
     handler: handler.fetchReport

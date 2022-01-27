@@ -1,19 +1,32 @@
 'use strict';
 
-import { formatCSV, formatError, formatSuccess, getRedis, midgard, normalizeConfig, normalizeAddresses, runProcess, sha256 } from './functions.mjs';
+import fs from 'fs';
+import { formatText, formatError, formatSuccess, getRedis, normalizeConfig, normalizeAddresses, runProcess, sha256 } from './functions.mjs';
+
+// endpoint: render the html
+export const loadIndex = async (event) => {
+    try {
+        return formatText(await fs.promises.readFile('./index.html'));
+    } catch (error) {
+        console.log(error);
+        return formatText('Unable to load page content');
+    }
+};
 
 // endpoint: kickoff process, start downloading actions from midgard into redis
-export const submitAddresses = async (event) => {
+export const submitAddresses = async (event, context, callback) => {
     let wallets;
     try {
         wallets = normalizeAddresses(event.queryStringParameters);
         //console.log(wallets);
     } catch (errors) {
-        return formatError('Invalid Wallet Address(es) Provided: ' + errors.join(', '));
+        callback(null, formatError('Invalid wallet address(es) provided: ' + errors.join(', ')));
+        return;
     }
 
     if (wallets.length < 1) {
-        return formatError('No Wallet Addresses Provided');
+        callback(null, formatError('No wallet addresses provided'));
+        return;
     }
 
     const config = normalizeConfig(event.queryStringParameters);
@@ -26,17 +39,18 @@ export const submitAddresses = async (event) => {
 
     if (await redis.exists(key + '_status')) {
         await redis.quit();
-        return formatSuccess({key: key, message: 'Process Already Running'});
+        callback(null, formatSuccess({key: key, message: 'Process already running'}));
+        return;
     }
 
+    callback(null, formatSuccess({key: key, message: 'Processing started'}));
+
     // running this in the background doesn't seem to work, so we'll wait
-    runProcess(redis, key, wallets, config).catch(async (error) => {
+    await runProcess(redis, key, wallets, config).catch(async (error) => {
         await redis.set(key + '_status', 'Error: ' + error);
         await redis.expire(key + '_status', process.env.TTL);
         await redis.quit();
     });
-
-    return formatSuccess({key: key, message: 'Processing Started'});
 };
 
 export const getStatus = async (event) => {
@@ -54,7 +68,7 @@ export const getStatus = async (event) => {
     }
 
     await redis.quit();
-    return formatError('Unknown Key');
+    return formatError('Unknown key');
 };
 
 export const fetchReport = async (event) => {
@@ -137,11 +151,11 @@ export const fetchReport = async (event) => {
             const transaction = JSON.parse(record);
             lines.push(keys.map(key => transaction[key] ?? base[key]).join(",").replace(fix.find, fix.replace));
         }
-        return formatCSV(lines.join('\r\n'));
+        return formatText(lines.join('\r\n'));
     }
 
     await redis.quit();
-    return formatError('Unknown Key');
+    return formatError('Unknown key');
 };
 
 export const purgeReport = async (event) => {
@@ -156,9 +170,9 @@ export const purgeReport = async (event) => {
         redis.del(key + '_record');
 
         await redis.quit();
-        return formatSuccess({message: 'Sucessfully Purged'});
+        return formatSuccess({message: 'Successfully purged key'});
     }
 
     await redis.quit();
-    return formatError('Unknown Key');
+    return formatError('Unknown key');
 };

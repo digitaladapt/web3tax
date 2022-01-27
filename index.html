@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -27,7 +27,7 @@
                             ThorChain Tax Calculator
                         </h1>
                         <p class="subtitle">
-                            Generate import-ready CSV file of your blockchain transactions, just by entering your wallet addreses.
+                            Generate import-ready CSV file of your blockchain transactions, just by entering your wallet addresses.
                         </p>
                         <form class="taxForm">
                             <div class="field"><div class="control">
@@ -63,9 +63,9 @@
                                 <div class="field"><div class="control">
                                     <label class="label">CSV Format</label>
                                     <div class="select is-success"><select name="format">
-                                        <option value="koinly">Koinly</option>
                                         <option value="cointracker">CoinTracker</option>
                                         <option value="cointracking">CoinTracking</option>
+                                        <option value="koinly">Koinly</option>
                                     </select></div>
                                 </div></div><div class="field"><div class="control">
                                     <button type="submit" class="button is-success taxGet">Download CSV</button>
@@ -83,12 +83,12 @@
                             <div class="level-item has-text-centered">
                                 <figure>
                                   <figcaption>THOR</figcaption>
-                                  <img src="https://www.digitaladapt.com/thor.png">
+                                  <img src="https://www.digitaladapt.com/thor.png" alt="thor1vkevvt4u0t7yra4xfk79hy7er38462w8yszx8y">
                                 </figure>
                             </div><div class="level-item has-text-centered">
                                 <figure>
                                   <figcaption>BNB</figcaption>
-                                  <img src="https://www.digitaladapt.com/bnb.png">
+                                  <img src="https://www.digitaladapt.com/bnb.png" alt="bnb1v54rp3w9h2hlresmvl0msf4vycnvnuc7nyp6cr">
                                 </figure>
                             </div>
                         </div>
@@ -105,7 +105,7 @@
                     </div>
                     <div class="box content">
                         <h2>Give Feedback</h2>
-                        <p>If you have any thoughts, questions, or would like to report a bug, you can either get ahold of <a href="https://twitter.com/digitaladapt" target="_blank">me on Twitter</a>,
+                        <p>If you have any thoughts, questions, or would like to report a bug, you can either get hold of <a href="https://twitter.com/digitaladapt" target="_blank">me on Twitter</a>,
                             or you can also use <a href="https://docs.google.com/forms/d/e/1FAIpQLScIeyYEYAHw1fNXakh34ZBpfRv4mZHL0Hu2aCMNMj6PRwTDHQ/viewform" target="_blank">this Google Form</a>.</p> 
                     </div>
                 </div>
@@ -160,7 +160,6 @@
 
                 $('.taxGo').addClass('is-loading');
                 $('.taxStatus').text('Submitting Request...');
-                console.log($('.taxForm').serialize());
                 $.getJSON('//' + window.location.host + '/generate?' + $('.taxForm').serialize(), (response) => {
                     $('.taxStatus').text(response.message);
                     if (response.status === 'success') {

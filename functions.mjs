@@ -11,22 +11,25 @@ export const formatDate = (date, offset) => {
     if (typeof offset !== 'number') {
         offset = 0;
     }
-    // date starts as unix-timestamp in nano-seconds
+    // date starts as unix-timestamp in nanoseconds
     // plus an offset in seconds
     date = new Date((Number(date) / 1000000) + (offset * 1000));
 
-    return date.getFullYear() + "-" + (date.getMonth() < 9 ? "0" : "") + (date.getMonth() + 1) + "-" + (date.getDate() < 10 ? "0" : "") + date.getDate() + " " + (date.getHours() < 10 ? "0" : "") + date.getHours() + ":" + (date.getMinutes() < 10 ? "0" : "") + date.getMinutes() + ":" + (date.getSeconds() < 10 ? "0" : "") + date.getSeconds();
+    return date.getFullYear() + "-" + (date.getMonth() < 9 ? "0" : "") + (date.getMonth() + 1) + "-" +
+        (date.getDate() < 10 ? "0" : "") + date.getDate() + " " + (date.getHours() < 10 ? "0" : "") + date.getHours() +
+        ":" + (date.getMinutes() < 10 ? "0" : "") + date.getMinutes() + ":" + (date.getSeconds() < 10 ? "0" : "") +
+        date.getSeconds();
 }
 
 // output for csv files
-export const formatCSV = (content) => {
+export const formatText = (content) => {
     return {
         statusCode: 200,
         body: content,
     };
 };
 
-// consistent output formating for api
+// consistent output formatting for api
 export const formatError = (message, statusCode) => {
     return {
         statusCode: statusCode ?? 400,
@@ -37,7 +40,7 @@ export const formatError = (message, statusCode) => {
     };
 };
 
-// consistent output formating for api
+// consistent output formatting for api
 export const formatSuccess = (content, statusCode) => {
     return {
         statusCode: statusCode ?? 200,
@@ -121,13 +124,13 @@ export const normalizeAddresses = (addresses) => {
                 break;
             case type.startsWith('bch'):
                 // legacy /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/
-                // normal /^(bitcoincash:)?(q|p)[a-z0-9]{38,90}$/
+                // normal /^(bitcoincash:)?[qp][a-z0-9]{38,90}$/
                 if (/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address)) {
                     wallets.push(address);
                     continue loop;
                 }
                 address = address.toLowerCase();
-                if (/^(bitcoincash:)?(q|p)[a-z0-9]{38,90}$/.test(address)) {
+                if (/^(bitcoincash:)?[qp][a-z0-9]{38,90}$/.test(address)) {
                     wallets.push(address);
                     continue loop;
                 }
@@ -264,13 +267,13 @@ export const runProcess = async (redis, key, wallets, config) => {
         //
         // -----
         //
-        // for each add-liqidity we need to have
+        // for each add-liquidity we need to have
         // a "deposit" transaction with the given TX-ID for each asset sent in (1-2)
         // going  into the "ThorChain Wallet"...
         //
         // then a "withdrawal" transaction to send each asset into the pool
         //
-        // also, optionally, a "non-taxible income" for the liquidity-units
+        // also, optionally, a "non-taxable income" for the liquidity-units
         //
         //
         // beyond transactions, we need to log liquidity units and their cost-basis
@@ -348,7 +351,7 @@ export const actionFee = (action, config, asset, skipFee) => {
         }
 
         // withdrawal transactions still have a transaction cost (coin-in used to be provided, now no coin, just thor address)
-        // swaps from RUNE have also have a transaction cost
+        // swaps from RUNE have also a transaction cost
         if (((type === 'withdraw' && ((action.in[0].coins.length === 0 && action.in[0].address.startsWith('thor1')) || action.in[0].coins[0].asset === 'THOR.RUNE'))
             || (type === 'swap' && action.in[0].coins[0].asset === 'THOR.RUNE' && action.out[0].coins[0].asset !== 'THOR.RUNE')
             || (type === 'deposit')) && (asset === 'RUNE' || !asset)) {
@@ -403,7 +406,7 @@ export const logLPTrade = async (redis, key, buyAmount, buyCurr, sellAmount, sel
     });
 
     if (buyCurr !== 'RUNE') {
-        // notice, that we always skip the fee for the withdraw after the trade, since we've already handled it in the trade
+        // notice, that we always skip the fee for the withdrawal after the trade, since we've already handled it in the trade
         await logLPWithdraw(redis, key, Number((buyAmount + (extraWithdraw ?? 0)).toFixed(8)), buyCurr, action, config, true);
     }
 };
@@ -475,7 +478,7 @@ export const logDeposit = async (redis, key, action, config) => {
         });
     }
 
-    // then (optionally), a "non-taxible income" for the liquidity units
+    // then (optionally), a "non-taxable income" for the liquidity units
     if (config.detailedLP) {
         await storeRecord(redis, key, {
             type:      'Income (non taxable)',
@@ -511,7 +514,7 @@ export const logWithdraw = async (redis, key, action, config) => {
     // we now have how much we originally deposited (in "basis"), and how much was actually withdrawn (in "coins")
     //console.log('withdrawing basis: ' + JSON.stringify(basis) + ', from the pool: ' + chainToken(action.pools[0]) + ', resulting in an outcome of: ' + JSON.stringify(coins));
 
-    // okay, here is where it gets complicated, since ThorChain has asymetrical liquidity pools,
+    // okay, here is where it gets complicated, since ThorChain has asymmetrical liquidity pools,
     // there are a number of possible cases to handle; one example is when withdrawing (after depositing both asset/rune),
     // the user can withdraw the value as just rune if desired, so to track it properly, a "trade" needs to be logged.
 
@@ -560,27 +563,27 @@ export const logWithdraw = async (redis, key, action, config) => {
     } else if (basis.RUNE > 0 && coins.RUNE > 0 && basis[asset] <= 0 && coins[asset] > 0) {
         //console.log('RUNE to BOTH');
         // so we convert half the basis.RUNE into coins[asset], then income/loss the difference between half the basis.RUNE and the coins.RUNE
-        // remember "half" doesn't always divide evenly, so we'll have to do basis-newbasis for the other half
+        // remember "half" doesn't always divide evenly, so we'll have to do basis-newBasis for the other half
         const newBasis = Number((basis.RUNE / 2).toFixed(8));
         await logLPTrade(redis, key, coins[asset], asset, Number((basis.RUNE - newBasis).toFixed(8)), 'RUNE', action, config);
         if (newBasis < coins.RUNE) {
-            // additionally we have a profit of RUNE to report as income
+            // additionally, we have a profit of RUNE to report as income
             await logLPIncome(redis, key, Number((coins.RUNE - newBasis).toFixed(8)), 'RUNE', action, config, true);
         } else if (newBasis > coins.RUNE) {
-            // additionally we have a loss of RUNE to report as loss
+            // additionally, we have a loss of RUNE to report as loss
             await logLPLoss(redis, key, Number((newBasis - coins.RUNE).toFixed(8)), 'RUNE', action, config, true);
         } // notice if exactly equal, no income/loss transaction to log
     } else if (basis.RUNE <= 0 && coins.RUNE > 0 && basis[asset] > 0 && coins[asset] > 0) {
         //console.log('ASSET to BOTH');
         // so we convert half the basis[asset] into coins.RUNE, then income/loss the difference between half the basis[asset] and the coins[asset]
-        // remember "half" doesn't always divide evenly, so we'll have to do basis-newbasis for the other half
+        // remember "half" doesn't always divide evenly, so we'll have to do basis-newBasis for the other half
         const newBasis = Number((basis[asset] / 2).toFixed(8));
         await logLPTrade(redis, key, coins.RUNE, 'RUNE', Number((basis[asset] - newBasis).toFixed(8)), asset, action, config);
         if (newBasis < coins[asset]) {
-            // additionally we have a profit of ASSET to report as income
+            // additionally, we have a profit of ASSET to report as income
             await logLPIncome(redis, key, Number((coins[asset] - newBasis).toFixed(8)), asset, action, config, true);
         } else if (newBasis > coins[asset]) {
-            // additionally we have a loss of ASSET to report as loss
+            // additionally, we have a loss of ASSET to report as loss
             await logLPLoss(redis, key, Number((newBasis - coins[asset]).toFixed(8)), asset, action, config, true);
         } // notice if exactly equal, no income/loss transaction to log
     } else if (basis.RUNE > 0 && coins.RUNE > 0 && basis[asset] > 0 && coins[asset] <= 0) {
@@ -590,7 +593,7 @@ export const logWithdraw = async (redis, key, action, config) => {
         if (basis.RUNE < coins.RUNE) {
             await logLPTrade(redis, key, Number((coins.RUNE - basis.RUNE).toFixed(8)), 'RUNE', basis[asset], asset, action, config);
         } else {
-            // unlikely case: started with both assets, withdraw as RUNE, but got less RUNE then was deposited, multiple losses
+            // unlikely case: started with both assets, withdraw as RUNE, but got less RUNE than was deposited, multiple losses
             await logLPLoss(redis, key, basis[asset], asset, action, config);
             if (basis.RUNE > coins.RUNE) {
                 await logLPLoss(redis, key, Number((basis.RUNE - coins.RUNE).toFixed(8)), 'RUNE', action, config, true);
@@ -604,7 +607,7 @@ export const logWithdraw = async (redis, key, action, config) => {
             // note the final extra parameter, which adds back in the basis, for the withdrawal
             await logLPTrade(redis, key, Number((coins[asset] - basis[asset]).toFixed(8)), asset, basis.RUNE, 'RUNE', action, config, false, basis[asset]);
         } else {
-            // unlikely case: started with both assets, withdraw as asset, but got less asset then was deposited, multiple losses
+            // unlikely case: started with both assets, withdraw as asset, but got less asset than was deposited, multiple losses
             await logLPLoss(redis, key, basis.RUNE, 'RUNE', action, config);
             if (basis[asset] > coins[asset]) {
                 await logLPLoss(redis, key, Number((basis[asset] - coins[asset]).toFixed(8)), asset, action, config, true);
@@ -692,7 +695,6 @@ export const calculateBasis = (action, config) => {
             }
         } else {
             throw 'missing cost-basis for pool: ' + chainToken(action.pools[0]);
-            break;
         }
     } while (Number((basis.LP + units).toFixed(8)) < 0);
 
@@ -704,7 +706,7 @@ export const logUpgrade = async (redis, key, action, config) => {
         // log move to wallet before upgrade
         await logToWallet(redis, key, action, config);
 
-        // optional, since people may or maynot want that
+        // optional, since people may or may not want that
         await storeRecord(redis, key, {
             type: 'Trade',
             buyAmount:  action.out[0].coins[0].amount / 100000000,
@@ -791,4 +793,3 @@ export const token = (asset, config) => {
 export const chainToken = (asset) => {
     return asset.split('-')[0];
 };
-

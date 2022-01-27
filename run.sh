@@ -10,4 +10,3 @@ TTL=7200 \
 node server.mjs 2>&1 | tee -a output.log; \
 echo '--- Restarting ---'; \
 done
-

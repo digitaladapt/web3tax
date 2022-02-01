@@ -1,0 +1,14 @@
+it's possible that a single swap can involve multiple output transactions (of the same asset).
+
+Here is an example:
+
+7A60BEA734F68F8DFDF733B76D4D58DBDEFFC5CA4ED4BBE922428A0FD59597AD
+https://viewblock.io/thorchain/tx/7A60BEA734F68F8DFDF733B76D4D58DBDEFFC5CA4ED4BBE922428A0FD59597AD
+
+5,718.34911983 RUNE to (68,977.24358262 + 17,327.44439857) = 86,304.68798119 BUSD
+
+---
+
+next requested feature is supporting @CryptoTaxHQ, which was requested by @menininha9393 on Twitter.
+
+---

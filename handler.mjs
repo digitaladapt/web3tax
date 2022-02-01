@@ -4,7 +4,7 @@ import fs from 'fs';
 import { formatText, formatError, formatSuccess, getRedis, normalizeConfig, normalizeAddresses, runProcess, sha256 } from './functions.mjs';
 
 // endpoint: render the html
-export const loadIndex = async (event) => {
+export const loadIndex = async () => {
     try {
         return formatText(await fs.promises.readFile('./index.html'));
     } catch (error) {
@@ -87,7 +87,7 @@ export const fetchReport = async (event) => {
         let base  = { netAmount: null, netCuur: null };
         let lines = ['Date,Sent Amount,Sent Currency,Received Amount,Received Currency,Fee Amount,Fee Currency,Net Worth Amount,Net Worth Currency,Label,Description,TxHash'];
         // re-categorize with the correct keywords
-        let fix   = { find: /,Withdrawal,Sent|,Deposit,Received|,Trade,|,Deposit,|,Withdrawal,|,Income,|,Lost,/g, replace: (found) => {
+        let fix   = { find: /,Withdrawal,Sent|,Deposit,Received|,Trade,|,Deposit,|,Withdrawal,|,Staking,|,Lost,/g, replace: (found) => {
             switch (found) {
                 case ',Withdrawal,Sent': // label depends on description
                     return ',to_pool,Sent';
@@ -97,8 +97,8 @@ export const fetchReport = async (event) => {
                 case ',Deposit,':
                 case ',Withdrawal,':
                     return ',,';
-                case ',Income,':
-                    return ',realized gain,';
+                case ',Staking,':
+                    return ',reward,';
                 case ',Lost,':
                     return ',lost,';
             }
@@ -130,7 +130,7 @@ export const fetchReport = async (event) => {
                 lines = ['Date,Received Quantity,Received Currency,Sent Quantity,Sent Currency,Fee Amount,Fee Currency,Tag'];
                 // MM/DD/YYYY date format
                 // re-categorize with the correct keywords
-                fix   = { find: /(\d{4})-(\d{2})-(\d{2}) |,Trade|,Deposit|,Withdrawal|,Income|,Lost/g, replace: (found) => {
+                fix   = { find: /(\d{4})-(\d{2})-(\d{2}) |,Trade|,Deposit|,Withdrawal|,Staking|,Lost/g, replace: (found) => {
                     if (/(\d{4})-(\d{2})-(\d{2}) /.test(found)) {
                         return found.replace(/(\d{4})-(\d{2})-(\d{2}) /, "$2/$3/$1 ");
                     }
@@ -139,13 +139,27 @@ export const fetchReport = async (event) => {
                         case ',Deposit':
                         case ',Withdrawal':
                             return ',';
-                        case ',Income':
+                        case ',Staking':
                             return ',staked';
                         case ',Lost':
                             return ',lost';
                     }
                 }};
                 break;
+            // // CryptoTaxCalculator is less trivial than originally expected, the first currency column is used for both transfers in and out
+            // // so we have to put sell/buy there depending on context
+            // // @see: https://cryptotaxcalculator.io/guides/advanced-manual-csv-import/
+            // // ideally should do something like an extra line between JSON.parse(record) and lines.push(...), which would decided if baseCurr = buyCurr or sellCurr...
+            // // how about fix.extra being a callback, which takes a transaction, and sets the baseCurr and such..
+            // // default fix.extra to a no-op callback, and ensure we set it as such in each other use-case
+            // // could even make the no-op be a pass-through and simply return the input, so we can do:
+            // // const transaction = fix.extra(JSON.parse(record));
+            // case 'cryptotaxcalculator':
+            //     keys  = ['date', 'type', 'baseCurr', 'baseAmount', 'quoteCurr', 'quoteAmount', 'feeCurr', 'fee', 'from', 'to', 'txID', 'comment'];
+            //     base  = { from: null, to: null };
+            //     lines = ['Timestamp (UTC),Type,Base Currency,Base Amount,Quote Currency (Optional),Quote Amount (Optional),Fee Currency (Optional),Fee Amount (Optional),From (Optional),To (Optional),ID (Optional),Description (Optional)'];
+            //     fix   = {}; // TODO
+            //     break;
         }
 
         for (const record of transactions) {

@@ -428,7 +428,7 @@ export const logLPIncome = async (redis, key, buyAmount, buyCurr, action, config
     const date = formatDate(action.date, 1);
 
     await storeRecord(redis, key, {
-        type: 'Income',
+        type: 'Staking',
         buyAmount:  buyAmount,
         buyCurr:    buyCurr,
         ...actionFee(action, config, buyCurr, skipFee),

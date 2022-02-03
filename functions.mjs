@@ -385,7 +385,8 @@ export const logTrade = async (redis, key, action, config) => {
             type:       'Withdrawal',
             sellAmount: action.out[0].coins[0].amount / 100000000,
             sellCurr:   token(action.out[0].coins[0].asset, config),
-            ...actionFee(action, config, token(action.out[0].coins[0].asset, config)),
+            // notice, that we always skip the fee for the withdrawal after the trade, since we've already handled it in the trade
+            //...actionFee(action, config, token(action.out[0].coins[0].asset, config)),
             date:       formatDate(action.date, 1),
             txID:       action.out[0].txID,
         });

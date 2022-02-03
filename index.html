@@ -69,9 +69,13 @@
                                     </select></div>
                                 </div></div><div class="taxGroup field is-hidden"><div class="control">
                                     <label class="label">TradeGroup (optional) <input type="text" name="group" class="input" autocomplete="on"></label>
-                                </div></div><div class="field"><div class="control">
+                                </div></div><div class="field buttons is-grouped">
+                                <div class="control is-expanded">
                                     <button type="submit" class="button is-success taxGet">Download CSV</button>
-                                </div></div>
+                                </div><div class="control">
+                                    <button type="button" class="button is-warning taxBookmark">Make URL Bookmarkable</button>
+                                    </div>
+                                </div>
                             </form>
                         </div>
                     </div>
@@ -142,6 +146,14 @@
     <script>
         Zepto(($) => {
             let key = null;
+
+            for (const [key, value] of (new URLSearchParams(window.location.search)).entries()) {
+                $('.taxForm').find('[name=' + key + ']').val(value);
+            }
+
+            $('.taxBookmark').on('click', () => {
+                window.history.pushState({}, '', '/?' + $('.taxForm').serialize());
+            });
 
             // trade-group field appears or hides depending on what format is selected
             const manageGroup = (event) => {

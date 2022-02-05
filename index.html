@@ -73,7 +73,7 @@
                                 <div class="control is-expanded">
                                     <button type="submit" class="button is-success taxGet">Download CSV</button>
                                 </div><div class="control">
-                                    <button type="button" class="button is-warning taxBookmark">Make URL Bookmarkable</button>
+                                    <button type="button" class="button is-warning taxBookmark">Make Bookmarkable</button>
                                     </div>
                                 </div>
                             </form>
@@ -142,6 +142,16 @@
             </div>
         </div>
     </section>
+    <div class="modal alertBookmark">
+        <div class="modal-background closeBookmark"></div>
+        <div class="modal-card">
+            <div class="modal-card-body">
+                Your address bar now has your wallet addresses, bookmark it, and when you return,
+                the fields will automatically re-populate with these addresses.
+            </div>
+        </div>
+        <button class="modal-close closeBookmark is-large" aria-label="close"></button>
+    </div>
     <script src="https://zeptojs.com/zepto.min.js"></script>
     <script>
         Zepto(($) => {
@@ -153,6 +163,17 @@
 
             $('.taxBookmark').on('click', () => {
                 window.history.pushState({}, '', '/?' + $('.taxForm').serialize());
+                $('.alertBookmark').addClass('is-active');
+            });
+
+            $('.closeBookmark').on('click', () => {
+                $('.alertBookmark').removeClass('is-active');
+            });
+
+            $(document).on('keydown', (event) => {
+                if (event.keyCode === 27) {
+                    $('.alertBookmark').removeClass('is-active');
+                }
             });
 
             // trade-group field appears or hides depending on what format is selected

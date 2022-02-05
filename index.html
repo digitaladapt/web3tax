@@ -9,7 +9,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="https://www.digitaladapt.com/web3tax/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="https://www.digitaladapt.com/web3tax/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="https://www.digitaladapt.com/web3tax/favicon-16x16.png">
-    <link rel="manifest" href="https://www.digitaladapt.com/web3tax/site.webmanifest">
+    <!-- <link rel="manifest" href="https://www.digitaladapt.com/web3tax/site.webmanifest"> -->
     <link rel="mask-icon" href="https://www.digitaladapt.com/web3tax/safari-pinned-tab.svg" color="#02121d">
     <link rel="shortcut icon" href="https://www.digitaladapt.com/web3tax/favicon.ico">
     <meta name="msapplication-TileColor" content="#02121d">
@@ -69,9 +69,13 @@
                                     </select></div>
                                 </div></div><div class="taxGroup field is-hidden"><div class="control">
                                     <label class="label">TradeGroup (optional) <input type="text" name="group" class="input" autocomplete="on"></label>
-                                </div></div><div class="field"><div class="control">
+                                </div></div><div class="field buttons is-grouped">
+                                <div class="control is-expanded">
                                     <button type="submit" class="button is-success taxGet">Download CSV</button>
-                                </div></div>
+                                </div><div class="control">
+                                    <button type="button" class="button is-warning taxBookmark">Make Bookmarkable</button>
+                                    </div>
+                                </div>
                             </form>
                         </div>
                     </div>
@@ -138,10 +142,39 @@
             </div>
         </div>
     </section>
+    <div class="modal alertBookmark">
+        <div class="modal-background closeBookmark"></div>
+        <div class="modal-card">
+            <div class="modal-card-body">
+                Your address bar now has your wallet addresses, bookmark it, and when you return,
+                the fields will automatically re-populate with these addresses.
+            </div>
+        </div>
+        <button class="modal-close closeBookmark is-large" aria-label="close"></button>
+    </div>
     <script src="https://zeptojs.com/zepto.min.js"></script>
     <script>
         Zepto(($) => {
             let key = null;
+
+            for (const [key, value] of (new URLSearchParams(window.location.search)).entries()) {
+                $('.taxForm').find('[name=' + key + ']').val(value);
+            }
+
+            $('.taxBookmark').on('click', () => {
+                window.history.pushState({}, '', '/?' + $('.taxForm').serialize());
+                $('.alertBookmark').addClass('is-active');
+            });
+
+            $('.closeBookmark').on('click', () => {
+                $('.alertBookmark').removeClass('is-active');
+            });
+
+            $(document).on('keydown', (event) => {
+                if (event.keyCode === 27) {
+                    $('.alertBookmark').removeClass('is-active');
+                }
+            });
 
             // trade-group field appears or hides depending on what format is selected
             const manageGroup = (event) => {

@@ -87,22 +87,26 @@ export const fetchReport = async (event) => {
         let base  = { netAmount: null, netCuur: null };
         let lines = ['Date,Sent Amount,Sent Currency,Received Amount,Received Currency,Fee Amount,Fee Currency,Net Worth Amount,Net Worth Currency,Label,Description,TxHash'];
         // re-categorize with the correct keywords
-        let fix   = { find: /,Withdrawal,Sent|,Deposit,Received|,Trade,|,Deposit,|,Withdrawal,|,Staking,|,Lost,/g, replace: (found) => {
-            switch (found) {
-                case ',Withdrawal,Sent': // label depends on description
-                    return ',to_pool,Sent';
-                case ',Deposit,Received': // label depends on description
-                    return ',from_pool,Received';
-                case ',Trade,':
-                case ',Deposit,':
-                case ',Withdrawal,':
-                    return ',,';
-                case ',Staking,':
-                    return ',reward,';
-                case ',Lost,':
-                    return ',lost,';
-            }
-        }};
+        let fix   = {
+            find: /,Withdrawal,Sent|,Deposit,Received|,Trade,|,Deposit,|,Withdrawal,|,Staking,|,Lost,/g,
+            replace: (found) => {
+                switch (found) {
+                    case ',Withdrawal,Sent': // label depends on description
+                        return ',to_pool,Sent';
+                    case ',Deposit,Received': // label depends on description
+                        return ',from_pool,Received';
+                    case ',Trade,':
+                    case ',Deposit,':
+                    case ',Withdrawal,':
+                        return ',,';
+                    case ',Staking,':
+                        return ',reward,';
+                    case ',Lost,':
+                        return ',lost,';
+                }
+            },
+            prepare: (record) => record
+        };
 
         switch (format) {
             case 'cointracking':
@@ -110,19 +114,23 @@ export const fetchReport = async (event) => {
                 base  = { exchange: 'ThorChain', tradeGroup: group };
                 lines = ['Type,Buy Amount,Buy Currency,Sell Amount,Sell Currency,Fee,Fee Currency,Exchange,Trade-Group,Comment,Date,Tx-ID'];
                 // DD.MM.YYYY date format
-                fix   = { find: /,(\d{4})-(\d{2})-(\d{2}) |,THOR,|,RUNE-[ETHB1A]{3},/g, replace: (found) => {
-                    if (/,(\d{4})-(\d{2})-(\d{2}) /.test(found)) {
-                        return found.replace(/,(\d{4})-(\d{2})-(\d{2}) /, ",$3.$2.$1 ");
-                    }
-                    switch (found) {
-                        case ',THOR,':
-                            // the only "THOR" coin is THORSwap
-                            return ',THOR2,';
-                        case ',RUNE-B1A,':
-                        case ',RUNE-ETH,':
-                            return ',RUNE2,';
-                    }
-                }};
+                fix   = {
+                    find: /,(\d{4})-(\d{2})-(\d{2}) |,THOR,|,RUNE-[ETHB1A]{3},/g,
+                    replace: (found) => {
+                        if (/,(\d{4})-(\d{2})-(\d{2}) /.test(found)) {
+                            return found.replace(/,(\d{4})-(\d{2})-(\d{2}) /, ",$3.$2.$1 ");
+                        }
+                        switch (found) {
+                            case ',THOR,':
+                                // the only "THOR" coin is THORSwap
+                                return ',THOR2,';
+                            case ',RUNE-B1A,':
+                            case ',RUNE-ETH,':
+                                return ',RUNE2,';
+                        }
+                    },
+                    prepare: (record) => record
+                };
                 break;
             case 'cointracker':
                 keys  = ['date', 'buyAmount', 'buyCurr', 'sellAmount', 'sellCurr', 'fee', 'feeCurr', 'type'];
@@ -130,40 +138,59 @@ export const fetchReport = async (event) => {
                 lines = ['Date,Received Quantity,Received Currency,Sent Quantity,Sent Currency,Fee Amount,Fee Currency,Tag'];
                 // MM/DD/YYYY date format
                 // re-categorize with the correct keywords
-                fix   = { find: /(\d{4})-(\d{2})-(\d{2}) |,Trade|,Deposit|,Withdrawal|,Staking|,Lost/g, replace: (found) => {
-                    if (/(\d{4})-(\d{2})-(\d{2}) /.test(found)) {
-                        return found.replace(/(\d{4})-(\d{2})-(\d{2}) /, "$2/$3/$1 ");
-                    }
-                    switch (found) {
-                        case ',Trade':
-                        case ',Deposit':
-                        case ',Withdrawal':
-                            return ',';
-                        case ',Staking':
-                            return ',staked';
-                        case ',Lost':
-                            return ',lost';
-                    }
-                }};
+                fix   = {
+                    find: /(\d{4})-(\d{2})-(\d{2}) |,Trade|,Deposit|,Withdrawal|,Staking|,Lost/g,
+                        replace: (found) => {
+                        if (/(\d{4})-(\d{2})-(\d{2}) /.test(found)) {
+                            return found.replace(/(\d{4})-(\d{2})-(\d{2}) /, "$2/$3/$1 ");
+                        }
+                        switch (found) {
+                            case ',Trade':
+                            case ',Deposit':
+                            case ',Withdrawal':
+                                return ',';
+                            case ',Staking':
+                                return ',staked';
+                            case ',Lost':
+                                return ',lost';
+                        }
+                    },
+                    prepare: (record) => record
+                };
                 break;
-            // // CryptoTaxCalculator is less trivial than originally expected, the first currency column is used for both transfers in and out
-            // // so we have to put sell/buy there depending on context
-            // // @see: https://cryptotaxcalculator.io/guides/advanced-manual-csv-import/
-            // // ideally should do something like an extra line between JSON.parse(record) and lines.push(...), which would decided if baseCurr = buyCurr or sellCurr...
-            // // how about fix.extra being a callback, which takes a transaction, and sets the baseCurr and such..
-            // // default fix.extra to a no-op callback, and ensure we set it as such in each other use-case
-            // // could even make the no-op be a pass-through and simply return the input, so we can do:
-            // // const transaction = fix.extra(JSON.parse(record));
-            // case 'cryptotaxcalculator':
-            //     keys  = ['date', 'type', 'baseCurr', 'baseAmount', 'quoteCurr', 'quoteAmount', 'feeCurr', 'fee', 'from', 'to', 'txID', 'comment'];
-            //     base  = { from: null, to: null };
-            //     lines = ['Timestamp (UTC),Type,Base Currency,Base Amount,Quote Currency (Optional),Quote Amount (Optional),Fee Currency (Optional),Fee Amount (Optional),From (Optional),To (Optional),ID (Optional),Description (Optional)'];
-            //     fix   = {}; // TODO
-            //     break;
+            // CryptoTaxCalculator is less trivial than originally expected, the first currency column is used for both transfers in and out
+            // so we have to put sell/buy there depending on context
+            // @see: https://cryptotaxcalculator.io/guides/advanced-manual-csv-import/
+            // ideally should do something like an extra line between JSON.parse(record) and lines.push(...), which would decided if baseCurr = buyCurr or sellCurr...
+            // how about fix.extra being a callback, which takes a transaction, and sets the baseCurr and such..
+            // default fix.extra to a no-op callback, and ensure we set it as such in each other use-case
+            // could even make the no-op be a pass-through and simply return the input, so we can do:
+            // const transaction = fix.extra(JSON.parse(record));
+            case 'cryptotaxcalculator':
+                keys  = ['date', 'type', 'baseCurr', 'baseAmount', 'quoteCurr', 'quoteAmount', 'feeCurr', 'fee', 'from', 'to', 'txID', 'comment'];
+                base  = { from: null, to: null };
+                lines = ['Timestamp (UTC),Type,Base Currency,Base Amount,Quote Currency (Optional),Quote Amount (Optional),Fee Currency (Optional),Fee Amount (Optional),From (Optional),To (Optional),ID (Optional),Description (Optional)'];
+                fix   = {
+                    find: '', // TODO find and replace stuff still, and a LOT of testing..
+                    replace: '',
+                    prepare: (record) => {
+                        if (record.type === 'Trade') {
+                            record.baseCurr    = record.buyCurr;
+                            record.baseAmount  = record.buyAmount;
+                            record.quoteCurr   = record.sellCurr;
+                            record.quoteAmount = record.sellAmount;
+                        } else {
+                            record.baseCurr   = record.buyCurr   ?? record.sellCurr;
+                            record.baseAmount = record.buyAmount ?? record.sellAmount;
+                        }
+                        return record;
+                    }
+                }; // TODO
+                break;
         }
 
         for (const record of transactions) {
-            const transaction = JSON.parse(record);
+            const transaction = fix.prepare(JSON.parse(record));
             lines.push(keys.map(key => transaction[key] ?? base[key]).join(",").replace(fix.find, fix.replace));
         }
         return formatText(lines.join('\r\n'));

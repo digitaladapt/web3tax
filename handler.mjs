@@ -105,7 +105,10 @@ export const fetchReport = async (event) => {
                         return ',lost,';
                 }
             },
-            prepare: (record) => record
+            prepare: (record) => {
+                record.date += ' UTC';
+                return record;
+            }
         };
 
         switch (format) {
@@ -175,7 +178,7 @@ export const fetchReport = async (event) => {
                     replace: '',
                     prepare: (record) => {
                         // DD/MM/YYYY date format
-                        record.date = record.date.replace(/(\d{4})-(\d{2})-(\d{2}) /, "$3/$2/$1 ");
+                        record.date = record.date.replace(/(\d{4})-(\d{2})-(\d{2}) /, "$3/$2/$1 ") + ' UTC';
                         if (record.type === 'Trade') {
                             record.baseCurr    = record.sellCurr;
                             record.baseAmount  = record.sellAmount;

@@ -83,6 +83,8 @@ export const fetchReport = async (event) => {
         const transactions = await redis.lRange(key + '_record', 0, -1);
         await redis.quit();
 
+        // default to koinly, if no known format specified
+        // https://help.koinly.io/en/articles/3662999-how-to-create-a-custom-csv-file-with-your-data
         let keys  = ['date', 'sellAmount', 'sellCurr', 'buyAmount', 'buyCurr', 'fee', 'feeCurr', 'netAmount', 'netCurr', 'type', 'comment', 'txID'];
         let base  = { netAmount: null, netCuur: null };
         let lines = ['Date,Sent Amount,Sent Currency,Received Amount,Received Currency,Fee Amount,Fee Currency,Net Worth Amount,Net Worth Currency,Label,Description,TxHash'];
@@ -112,6 +114,7 @@ export const fetchReport = async (event) => {
         };
 
         switch (format) {
+            // https://cointracking.info/import/import_csv/
             case 'cointracking':
                 keys  = ['type', 'buyAmount', 'buyCurr', 'sellAmount', 'sellCurr', 'fee', 'feeCurr', 'exchange', 'tradeGroup', 'comment', 'date', 'txID'];
                 base  = { exchange: 'ThorChain', tradeGroup: group };
@@ -135,6 +138,7 @@ export const fetchReport = async (event) => {
                     prepare: (record) => record
                 };
                 break;
+            // https://help.cointracker.io/en/articles/5172429-converting-transaction-history-csvs-to-the-cointracker-csv-format
             case 'cointracker':
                 keys  = ['date', 'buyAmount', 'buyCurr', 'sellAmount', 'sellCurr', 'fee', 'feeCurr', 'type'];
                 base  = {};
@@ -161,14 +165,7 @@ export const fetchReport = async (event) => {
                     prepare: (record) => record
                 };
                 break;
-            // CryptoTaxCalculator is less trivial than originally expected, the first currency column is used for both transfers in and out
-            // so we have to put sell/buy there depending on context
-            // @see: https://cryptotaxcalculator.io/guides/advanced-manual-csv-import/
-            // ideally should do something like an extra line between JSON.parse(record) and lines.push(...), which would decided if baseCurr = buyCurr or sellCurr...
-            // how about fix.extra being a callback, which takes a transaction, and sets the baseCurr and such..
-            // default fix.extra to a no-op callback, and ensure we set it as such in each other use-case
-            // could even make the no-op be a pass-through and simply return the input, so we can do:
-            // const transaction = fix.extra(JSON.parse(record));
+            // https://cryptotaxcalculator.io/guides/advanced-manual-csv-import/
             case 'cryptotaxcalculator':
                 keys  = ['date', 'type', 'baseCurr', 'baseAmount', 'quoteCurr', 'quoteAmount', 'feeCurr', 'fee', 'from', 'to', 'txID', 'comment'];
                 base  = { from: null, to: null };

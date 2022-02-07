@@ -171,21 +171,45 @@ export const fetchReport = async (event) => {
                 base  = { from: null, to: null };
                 lines = ['Timestamp (UTC),Type,Base Currency,Base Amount,Quote Currency (Optional),Quote Amount (Optional),Fee Currency (Optional),Fee Amount (Optional),From (Optional),To (Optional),ID (Optional),Description (Optional)'];
                 fix   = {
-                    find: '', // TODO find and replace stuff still, and a LOT of testing..
+                    find: '',
                     replace: '',
                     prepare: (record) => {
+                        // DD/MM/YYYY date format
+                        record.date = record.date.replace(/(\d{4})-(\d{2})-(\d{2}) /, "$3/$2/$1 ");
                         if (record.type === 'Trade') {
-                            record.baseCurr    = record.buyCurr;
-                            record.baseAmount  = record.buyAmount;
-                            record.quoteCurr   = record.sellCurr;
-                            record.quoteAmount = record.sellAmount;
+                            record.baseCurr    = record.sellCurr;
+                            record.baseAmount  = record.sellAmount;
+                            record.quoteCurr   = record.buyCurr;
+                            record.quoteAmount = record.buyAmount;
+                            record.type = 'sell'; // sell indicates it will trigger capital gains, which we want
+                            record.from = 'ThorChain';
+                            record.to = 'ThorChain';
                         } else {
+                            // only trades have both buy and sell, so in this case, base is whatever we have
                             record.baseCurr   = record.buyCurr   ?? record.sellCurr;
                             record.baseAmount = record.buyAmount ?? record.sellAmount;
+                            switch (record.type) {
+                                case 'Deposit':
+                                    record.type = 'transfer-in';
+                                    record.to = 'ThorChain';
+                                    break;
+                                case 'Withdrawal':
+                                    record.type = 'transfer-out';
+                                    record.from = 'ThorChain';
+                                    break;
+                                case 'Staking':
+                                    record.type = 'staking';
+                                    record.to = 'ThorChain';
+                                    break;
+                                case 'Lost':
+                                    record.type = 'lost';
+                                    record.from = 'ThorChain';
+                                    break;
+                            }
                         }
                         return record;
                     }
-                }; // TODO
+                };
                 break;
         }
 

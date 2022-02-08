@@ -1,17 +1,21 @@
 import fs from 'fs';
 import http from 'http';
-import url from 'url';
 import { submitAddresses, getStatus, fetchReport, purgeReport } from './handler.mjs';
 
 const hostname = 'localhost';
-const port = process.env.PORT;
+const port = Number(process.env.PORT);
 
 let indexPage = '';
 
 const server = http.createServer((req, res) => {
     res.statusCode = 200;
-    const parsed = url.parse(req.url, true);
-    // {"query":{"key":"value"},"pathname":"/path"}
+    const parsed = new URL(req.url, req.protocol + '://' + req.headers.host + '/');
+    // make parsed "searchParams" a simple query object, like ""url.parse(<url>, true)"" used to do
+    const query = {};
+    parsed.searchParams.forEach((value, key) => {
+        query[key] = value;
+    });
+    // parsed: {"pathname": "/path"}; query: {"key": "value"};
 
     //res.setHeader('Content-Type', 'application/json');
     //res.end(JSON.stringify(parsed));
@@ -23,10 +27,10 @@ const server = http.createServer((req, res) => {
             res.end(indexPage);
             break;
         case '/generate':
-            console.log('generate|' + Date.now() + '|' + JSON.stringify(parsed.query));
+            console.log('generate|' + Date.now() + '|' + JSON.stringify(query));
             res.setHeader('Content-Type', 'application/json');
 			submitAddresses({
-                queryStringParameters: parsed.query,
+                queryStringParameters: query,
             }, null, (error, output) => {
                 res.end(output.body);
             });
@@ -34,7 +38,7 @@ const server = http.createServer((req, res) => {
         case '/status':
             res.setHeader('Content-Type', 'application/json');
 			getStatus({
-                queryStringParameters: parsed.query,
+                queryStringParameters: query,
             }).then((output) => {
                 res.end(output.body);
             });
@@ -43,7 +47,7 @@ const server = http.createServer((req, res) => {
             res.setHeader('Content-Type', 'text/csv');
             res.setHeader("Content-Disposition", "attachment;filename=thorchain-report.csv");
 			fetchReport({
-                queryStringParameters: parsed.query,
+                queryStringParameters: query,
             }).then((output) => {
                 res.end(output.body);
             });
@@ -51,7 +55,7 @@ const server = http.createServer((req, res) => {
         case '/clear':
             res.setHeader('Content-Type', 'application/json');
 			purgeReport({
-                queryStringParameters: parsed.query,
+                queryStringParameters: query,
             }).then((output) => {
                 res.end(output.body);
             });

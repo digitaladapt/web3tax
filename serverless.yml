@@ -80,26 +80,7 @@ resources:
       Type: AWS::EC2::EIP
       Properties:
         Domain: vpc
-    InternetGatewayLambda:
-      Type: AWS::EC2::InternetGateway
-    VPCGatewayAttachmentLambda:
-      Type: AWS::EC2::VPCGatewayAttachment
-      Properties:
-        VpcId:
-          Ref: ServerlessVPC
-        InternetGatewayId:
-          Ref: InternetGatewayLambda
-    NatGatewayLambda:
-      Type: AWS::EC2::NatGateway
-      Properties:
-        AllocationId:
-          Fn::GetAtt:
-            - ElasticIpLambda
-            - AllocationId
-        SubnetId:
-          Ref: ServerlessPublicSubnetA
     ServerlessPrivateSubnetA:
-      DependsOn: ServerlessVPC
       Type: AWS::EC2::Subnet
       Properties:
         VpcId:
@@ -107,7 +88,6 @@ resources:
         AvailabilityZone: ${self:provider.region}a
         CidrBlock: "10.0.1.0/24"
     ServerlessPublicSubnetA:
-      DependsOn: ServerlessVPC
       Type: AWS::EC2::Subnet
       Properties:
         VpcId:
@@ -125,8 +105,6 @@ resources:
         RouteTableId:
           Ref: DefaultPrivateRouteTable
         DestinationCidrBlock: 0.0.0.0/0
-        NatGatewayId:
-          Ref: NatGatewayLambda
     DefaultPublicRouteTable:
       Type: AWS::EC2::RouteTable
       Properties:
@@ -138,8 +116,6 @@ resources:
         RouteTableId:
           Ref: DefaultPublicRouteTable
         DestinationCidrBlock: 0.0.0.0/0
-        GatewayId:
-          Ref: InternetGatewayLambda
     SubnetRouteTableAssociationLambdaPrivateA:
       Type: AWS::EC2::SubnetRouteTableAssociation
       Properties:
@@ -155,14 +131,12 @@ resources:
         RouteTableId:
           Ref: DefaultPublicRouteTable
     ServerlessSecurityGroup:
-      DependsOn: ServerlessVPC
       Type: AWS::EC2::SecurityGroup
       Properties:
         GroupDescription: SecurityGroup for Serverless Functions
         VpcId:
           Ref: ServerlessVPC
     ServerlessStorageSecurityGroup:
-      DependsOn: ServerlessVPC
       Type: AWS::EC2::SecurityGroup
       Properties:
         GroupDescription: Ingress for Redis Cluster
@@ -181,7 +155,6 @@ resources:
         SubnetIds:
         - Ref: ServerlessPrivateSubnetA
     ServerlessElasticacheCluster:
-      DependsOn: ServerlessStorageSecurityGroup
       Type: AWS::ElastiCache::CacheCluster
       Properties:
         AutoMinorVersionUpgrade: true

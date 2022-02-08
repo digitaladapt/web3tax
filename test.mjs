@@ -2,10 +2,10 @@ import * as handler from './handler.mjs';
 
 process.env.REDIS_ENDPOINT = 'localhost:6379';
 process.env.REDIS_PREFIX = 'test_';
-process.env.MIDGARD_LIMIT = 50;
+process.env.MIDGARD_LIMIT = '50';
 process.env.MIDGARD_URL = 'https://midgard.thorchain.info/v2/actions?limit=50&address={WALLETS}&offset={OFFSET}';
-process.env.PORT = 3000;
-process.env.TTL = 7200;
+process.env.PORT = '3000';
+process.env.TTL = '7200';
 
 const sleep = async (millis) => {
     return new Promise((resolve) => {

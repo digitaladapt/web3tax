@@ -56,7 +56,7 @@ export const getRedis = async () => {
     const [redisHost, redisPort] = process.env.REDIS_ENDPOINT.split(':');
     const client = createClient({ socket: {
         host: redisHost,
-        port: redisPort
+        port: Number(redisPort)
     }});
 
     client.on('error', (error) => {
@@ -72,7 +72,7 @@ export const getRedis = async () => {
 // pagination starts with 0 (zero)
 // addAction(action) and setCount(count) are callbacks
 export const midgard = async (wallets, pagination, addAction, setCount) => {
-    const url = process.env.MIDGARD_URL.replace('{WALLETS}', wallets.join(',')).replace('{OFFSET}', pagination * process.env.MIDGARD_LIMIT);
+    const url = process.env.MIDGARD_URL.replace('{WALLETS}', wallets.join(',')).replace('{OFFSET}', String(pagination * process.env.MIDGARD_LIMIT));
     //console.log('url:', url);
     await fetch(url).then((response) => {
         //console.log('response: fetch successful');
@@ -95,6 +95,8 @@ export const normalizeAddresses = (addresses) => {
 
     loop:
     for (let [type, address] of Object.entries(addresses)) {
+        address = String(address);
+
         // ignore empty addresses
         if (address.length < 1) {
             continue;
@@ -191,6 +193,7 @@ export const normalizeConfig = (options) => {
         // REMEMBER: add *ALL* defaults here
         detailedLP:      false,
         includeUpgrades: false,
+        firstRecord:     true,
     };
 
     for (let [type, option] of Object.entries(options)) {
@@ -370,7 +373,7 @@ export const actionFee = (action, config, asset, skipFee) => {
 export const logTrade = async (redis, key, action, config) => {
     await logToWallet(redis, key, action, config);
 
-    await storeRecord(redis, key, {
+    await storeRecord(redis, key, config, {
         type: 'Trade',
         buyAmount:  action.out[0].coins[0].amount / 100000000,
         buyCurr:    token(action.out[0].coins[0].asset, config),
@@ -381,7 +384,7 @@ export const logTrade = async (redis, key, action, config) => {
     });
 
     if (action.out[0].coins[0].asset !== 'THOR.RUNE') {
-        await storeRecord(redis, key, {
+        await storeRecord(redis, key, config, {
             type:       'Withdrawal',
             sellAmount: action.out[0].coins[0].amount / 100000000,
             sellCurr:   token(action.out[0].coins[0].asset, config),
@@ -396,7 +399,7 @@ export const logTrade = async (redis, key, action, config) => {
 export const logLPTrade = async (redis, key, buyAmount, buyCurr, sellAmount, sellCurr, action, config, skipFee, extraWithdraw) => {
     const date = formatDate(action.date);
 
-    await storeRecord(redis, key, {
+    await storeRecord(redis, key, config, {
         type: 'Trade',
         buyAmount:  buyAmount,
         buyCurr:    buyCurr,
@@ -415,7 +418,7 @@ export const logLPTrade = async (redis, key, buyAmount, buyCurr, sellAmount, sel
 export const logLPWithdraw = async (redis, key, sellAmount, sellCurr, action, config, skipFee) => {
     const date = formatDate(action.date, 2);
 
-    await storeRecord(redis, key, {
+    await storeRecord(redis, key, config, {
         type:       'Withdrawal',
         sellAmount: sellAmount,
         sellCurr:   sellCurr,
@@ -428,7 +431,7 @@ export const logLPWithdraw = async (redis, key, sellAmount, sellCurr, action, co
 export const logLPIncome = async (redis, key, buyAmount, buyCurr, action, config, skipFee) => {
     const date = formatDate(action.date, 1);
 
-    await storeRecord(redis, key, {
+    await storeRecord(redis, key, config, {
         type: 'Staking',
         buyAmount:  buyAmount,
         buyCurr:    buyCurr,
@@ -441,7 +444,7 @@ export const logLPIncome = async (redis, key, buyAmount, buyCurr, action, config
 export const logLPLoss = async (redis, key, sellAmount, sellCurr, action, config, skipFee) => {
     const date = formatDate(action.date, 1);
 
-    await storeRecord(redis, key, {
+    await storeRecord(redis, key, config, {
         type: 'Lost',
         sellAmount: sellAmount,
         sellCurr:   sellCurr,
@@ -469,7 +472,7 @@ export const logDeposit = async (redis, key, action, config) => {
 
     // then a "withdrawal" transaction for each asset sent into the pool
     for (const sent of action.in) {
-        await storeRecord(redis, key, {
+        await storeRecord(redis, key, config, {
             type:       'Withdrawal',
             sellAmount: sent.coins[0].amount / 100000000,
             sellCurr:   token(sent.coins[0].asset, config),
@@ -481,7 +484,7 @@ export const logDeposit = async (redis, key, action, config) => {
 
     // then (optionally), a "non-taxable income" for the liquidity units
     if (config.detailedLP) {
-        await storeRecord(redis, key, {
+        await storeRecord(redis, key, config, {
             type:      'Income (non taxable)',
             buyAmount: units,
             buyCurr:   token(action.pools[0], config) + '-RUNE',
@@ -521,7 +524,7 @@ export const logWithdraw = async (redis, key, action, config) => {
 
     // if desired, a "withdrawal" of the LP Units
     if (config.detailedLP) {
-        await storeRecord(redis, key, {
+        await storeRecord(redis, key, config, {
             type:       'Expense (non taxable)',
             sellAmount: basis.LP,
             sellCurr:   token(action.pools[0], config) + '-RUNE',
@@ -533,7 +536,7 @@ export const logWithdraw = async (redis, key, action, config) => {
     // a "deposit" for each basis we get out (1 or 2)
     // the rune withdraw request transaction fee will be included in the first "deposit"
     if (basis.RUNE > 0) {
-        await storeRecord(redis, key, {
+        await storeRecord(redis, key, config, {
             type:      'Deposit',
             buyAmount: basis.RUNE,
             buyCurr:   'RUNE',
@@ -543,7 +546,7 @@ export const logWithdraw = async (redis, key, action, config) => {
         });
     }
     if (basis[asset] > 0) {
-        await storeRecord(redis, key, {
+        await storeRecord(redis, key, config, {
             type:      'Deposit',
             buyAmount: basis[asset],
             buyCurr:   asset,
@@ -708,7 +711,7 @@ export const logUpgrade = async (redis, key, action, config) => {
         await logToWallet(redis, key, action, config);
 
         // optional, since people may or may not want that
-        await storeRecord(redis, key, {
+        await storeRecord(redis, key, config, {
             type: 'Trade',
             buyAmount:  action.out[0].coins[0].amount / 100000000,
             buyCurr:    token(action.out[0].coins[0].asset, config),
@@ -733,7 +736,7 @@ export const logToWallet = async (redis, key, action, config, comment) => {
         coins[token(sent.coins[0].asset, config)] = sent.coins[0].amount / 100000000;
 
         if (sent.coins[0].asset !== 'THOR.RUNE') {
-            await storeRecord(redis, key, {
+            await storeRecord(redis, key, config, {
                 type:      'Deposit',
                 buyAmount: coins[token(sent.coins[0].asset, config)],
                 buyCurr:   token(sent.coins[0].asset, config),
@@ -758,14 +761,13 @@ export const logToWallet = async (redis, key, action, config, comment) => {
     return null;
 };
 
-let firstRecord = true;
-export const storeRecord = async (redis, key, record) => {
+export const storeRecord = async (redis, key, config, record) => {
     if (printDetails) {
         console.log('store:', record);
     }
     await redis.rPush(key + '_record', JSON.stringify(record));
-    if (firstRecord) {
-        firstRecord = false;
+    if (config.firstRecord) {
+        config.firstRecord = false;
         //console.log('set record-expire');
         await redis.expire(key + '_record', process.env.TTL);
     }

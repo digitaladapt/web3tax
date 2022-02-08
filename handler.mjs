@@ -86,7 +86,7 @@ export const fetchReport = async (event) => {
         // default to koinly, if no known format specified
         // https://help.koinly.io/en/articles/3662999-how-to-create-a-custom-csv-file-with-your-data
         let keys  = ['date', 'sellAmount', 'sellCurr', 'buyAmount', 'buyCurr', 'fee', 'feeCurr', 'netAmount', 'netCurr', 'type', 'comment', 'txID'];
-        let base  = { netAmount: null, netCuur: null };
+        let base  = { netAmount: null, netCurr: null };
         let lines = ['Date,Sent Amount,Sent Currency,Received Amount,Received Currency,Fee Amount,Fee Currency,Net Worth Amount,Net Worth Currency,Label,Description,TxHash'];
         // re-categorize with the correct keywords
         let fix   = {
@@ -230,10 +230,10 @@ export const purgeReport = async (event) => {
     const redis = await getRedis();
 
     if (await redis.exists(key + '_status')) {
-        redis.del(key);
-        redis.del(key + '_status');
-        redis.del(key + '_count');
-        redis.del(key + '_record');
+        await redis.del(key);
+        await redis.del(key + '_status');
+        await redis.del(key + '_count');
+        await redis.del(key + '_record');
 
         await redis.quit();
         return formatSuccess({message: 'Successfully purged key'});

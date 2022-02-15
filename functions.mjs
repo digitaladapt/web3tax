@@ -288,13 +288,15 @@ export const runProcess = async (redis, key, wallets, config) => {
         // a "deposit" transaction where we get back whatever we had swapped in from our pooled history
         // for the number of LP units withdrawn...
         //
-        // If needed, a "trade" to resolve cross currency issues (this will require to know the pool swap rate at
-        // that point in time, which will need to be looked up (and stored for a long time).
+        // If needed, a "trade" to resolve cross currency issues (added RUNE/BTC, withdrew just RUNE via implicit trade,
+        // which needs to be reported for the books to be balanced).
         //
-        // furthermore, we'll need to account for gains/loss (is loss possible?)
+        // furthermore, we'll need to account for gains/loss (is loss possible? yes, but uncommon)
         // for each currency (these will be "income" transactions
         //
         // and finally for any non-rune, a "withdrawal" to the other wallet
+        //
+        // I'd like to report what is currently pooled, once the report is ready, instead of just dropping that data.
 
         //console.log(action.type);
 
@@ -406,6 +408,7 @@ export const logLPTrade = async (redis, key, buyAmount, buyCurr, sellAmount, sel
         sellAmount: sellAmount,
         sellCurr:   sellCurr,
         ...actionFee(action, config, buyCurr, skipFee),
+        comment:    'Trade from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
         date:       date,
     });
 

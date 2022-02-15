@@ -83,32 +83,45 @@
                 </div>
                 <div class="column">
                     <div class="box content">
+                        <h2>Delegate $HUAHUA</h2>
+                        <p>I'm starting work on adding support for Cosmos blockchains, starting with
+                            <a href="https://chihuahua.wtf/" target="_blank">Chihuahua</a>. One way you can support
+                            us is to <a href="https://chihuahua.omniflix.co/stake">delegate to our Chihuahua chain validator</a>.</p>
+                        <a href="https://www.mintscan.io/chihuahua/validators/chihuahuavaloper1krkmg6f0sjwalkx3nq39yt0upxgys7alpxrka7">Check us out on MintScan.</a>
+                    </div>
+                    <div class="box content">
                         <h2>Donate</h2>
-                        <p>I made this, because I use ThorChain, and needed a way to load hundreds of transactions into my tax software, without having to manually adding each one.</p>
-                        <p>I thought others would likely benefit from it as well. If it helps save you time/money, please consider at least a small donation to help keep this project going.</p>
+                        <p>I made this, because I use ThorChain, and needed a way to load hundreds of transactions into
+                            my tax software, without having to manually adding each one.</p>
+                        <p>I thought others would likely benefit from it as well. If it helps save you time/money,
+                            please consider delegating or donating a little to help keep this project going.</p>
                         <div class="level">
                             <div class="level-item has-text-centered">
                                 <figure>
-                                  <figcaption>THOR</figcaption>
+                                  <figcaption>ThorChain</figcaption>
                                   <img src="https://www.digitaladapt.com/thor.png" alt="thor1vkevvt4u0t7yra4xfk79hy7er38462w8yszx8y">
                                 </figure>
                             </div><div class="level-item has-text-centered">
                                 <figure>
-                                  <figcaption>BNB</figcaption>
-                                  <img src="https://www.digitaladapt.com/bnb.png" alt="bnb1v54rp3w9h2hlresmvl0msf4vycnvnuc7nyp6cr">
+                                  <figcaption>Chihuahua</figcaption>
+                                  <img src="https://www.digitaladapt.com/chihuahua.png" alt="chihuahua1wkzpd9uxftghyweh0dd4v58x727ugvqkz6mejk">
                                 </figure>
                             </div>
                         </div>
                         <ul>
                             <li><strong>thor1vkevvt4u0t7yra4xf<wbr>k79hy7er38462w8yszx8y</strong></li>
-                            <li><strong>bnb1v54rp3w9h2hlresmvl<wbr>0msf4vycnvnuc7nyp6cr</strong></li>
-                            <li><strong>bc1ql7a704xh4ptzcvm8lx<wbr>6r8hwxcmau09dul6yh7y</strong></li>
-                            <li><strong>ltc1qzw06k68yesj62ja0z<wbr>9p4s527et496tdtstxvs5</strong></li>
-                            <li><strong>qzcxt5hl30yk3w052n3x6w<wbr>jvky9rwn0p6guz95qmje</strong> (BCH)</li>
-                            <li><strong>0x165d707704716b02c050<wbr>935F8Ce6E0429C9829e6</strong> (AVAX,&nbsp;BSC,&nbsp;ETH,&nbsp;FTM,&nbsp;etc.)</li>
-                            <li><strong>terra1t8magaxn4q6jllgx<wbr>4hregjh4gtn2k96caqmd7p</strong></li>
-                            <li><strong>cosmos1wkzpd9uxftghywe<wbr>h0dd4v58x727ugvqkp0khn5</strong></li>
+                            <li><strong>chihuahua1wkzpd9uxftgh<wbr>yweh0dd4v58x727ugvqkz6mejk</strong></li>
+                            <div class="is-hidden donateMore">
+                                <li><strong>bc1ql7a704xh4ptzcvm8lx<wbr>6r8hwxcmau09dul6yh7y</strong></li>
+                                <li><strong>bnb1v54rp3w9h2hlresmvl<wbr>0msf4vycnvnuc7nyp6cr</strong></li>
+                                <li><strong>ltc1qzw06k68yesj62ja0z<wbr>9p4s527et496tdtstxvs5</strong></li>
+                                <li><strong>qzcxt5hl30yk3w052n3x6w<wbr>jvky9rwn0p6guz95qmje</strong> (BCH)</li>
+                                <li><strong>0x165d707704716b02c050<wbr>935F8Ce6E0429C9829e6</strong> (AVAX,&nbsp;BSC,&nbsp;ETH,&nbsp;FTM,&nbsp;etc.)</li>
+                                <li><strong>terra1t8magaxn4q6jllgx<wbr>4hregjh4gtn2k96caqmd7p</strong></li>
+                                <li><strong>cosmos1wkzpd9uxftghywe<wbr>h0dd4v58x727ugvqkp0khn5</strong></li>
+                            </div>
                         </ul>
+                        <button type="button" class="button is-small is-success showMore">Show More</button>
                     </div>
                     <div class="box content">
                         <h2>Give Feedback</h2>
@@ -161,6 +174,16 @@
             for (const [key, value] of (new URLSearchParams(window.location.search)).entries()) {
                 $('.taxForm').find('[name=' + key + ']').val(value);
             }
+
+            $('.showMore').on('click', () => {
+                if ($('.showMore').hasClass('showLess')) {
+                    $('.donateMore').addClass('is-hidden');
+                    $('.showMore').removeClass('showLess is-warning').text('Show More');
+                } else {
+                    $('.donateMore').removeClass('is-hidden');
+                    $('.showMore').addClass('showLess is-warning').text('Show Less');
+                }
+            });
 
             $('.taxBookmark').on('click', () => {
                 window.history.pushState({}, '', '/?' + $('.taxForm').serialize());

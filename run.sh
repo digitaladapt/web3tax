@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # Summary:
+# script expects to be run from project folder
 # we use the redis identified by the endpoint
 # all records use a prefix to avoid collision with anything else using redis
 # midgard pages results (max 50)
@@ -10,15 +11,13 @@
 # NineRealms Midgard # https://midgard.ninerealms.com/v2/actions?limit=50&address={WALLETS}&offset={OFFSET}
 # port: tcp port to bind, for web interface and api calls (in production, you'd want a proxy like nginx to handle https)
 # ttl: time-to-live (in seconds); production 7200 (2 hours), test 120 (2 minutes)
-# non-test version is wrapped in loop-forever, so that it restarts if it crashes.
 
-while true; do \
+cd `dirname "$0"`
+
 REDIS_ENDPOINT=localhost:6379 \
 REDIS_PREFIX='live_' \
 MIDGARD_LIMIT=50 \
 MIDGARD_URL='https://midgard.ninerealms.com/v2/actions?limit=50&address={WALLETS}&offset={OFFSET}' \
 PORT=3000 \
 TTL=7200 \
-node server.mjs 2>&1 | tee -a output.log; \
-echo '--- Restarting ---'; \
-done
+/usr/bin/env node server.mjs 2>&1 | tee -a output.log; \

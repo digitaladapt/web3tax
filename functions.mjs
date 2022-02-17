@@ -3,6 +3,7 @@
 import fetch from 'node-fetch';
 import { createClient } from 'redis';
 import crypto from 'crypto';
+import { Calculation } from "./calculations.mjs";
 
 let printDetails = false; // for debugging
 
@@ -194,6 +195,8 @@ export const normalizeConfig = (options) => {
         detailedLP:      false,
         includeUpgrades: false,
         firstRecord:     true,
+        pooled:          {}, // we add pool names as we run across them
+        standardLP:      true, // log sent-to/received-from pool transactions
     };
 
     for (let [type, option] of Object.entries(options)) {
@@ -205,6 +208,9 @@ export const normalizeConfig = (options) => {
         switch (type) {
             case 'opt-separate':
                 config.includeUpgrades = Boolean(option);
+                break;
+            case 'opt-minimal':
+                config.standardLP = Boolean(option);
                 break;
             // REMEMBER: add *ALL* defaults to config init
         }
@@ -305,18 +311,24 @@ export const runProcess = async (redis, key, wallets, config) => {
             continue;
         }
 
+        const calc = new Calculation(redis, key, action, config);
+
         switch (action.type) {
             case 'swap':
-                await logTrade(redis, key, action, config);
+                //await logTrade(redis, key, action, config);
+                await calc.logTrade();
                 break;
             case 'addLiquidity':
-                await logDeposit(redis, key, action, config);
+                //await logDeposit(redis, key, action, config);
+                await calc.logDeposit();
                 break;
             case 'withdraw':
-                await logWithdraw(redis, key, action, config);
+                //await logWithdraw(redis, key, action, config);
+                await calc.logWithdraw();
                 break;
             case 'switch':
-                await logUpgrade(redis, key, action, config);
+                //await logUpgrade(redis, key, action, config);
+                await calc.logUpgrade();
                 break;
         }
 

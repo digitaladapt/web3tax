@@ -273,11 +273,22 @@
             // lp stuff
 
             $('.lpStatus').on('click', () => {
+                if ($('.thorAddress').val().length < 42) {
+                    $('.lpResults').text('Invalid ThorChain Address').removeClass('is-hidden');
+                    return;
+                }
+                $('.lpStatus').addClass('is-loading');
                 // get each of the following json, loop over member, find corresponding pool, simple math, display results
                 // https://midgard.thorchain.info/v2/member/<thor1..>
                 // https://midgard.thorchain.info/v2/pools
+                let timer = setTimeout(() => {
+                    $('.lpStatus').removeClass('is-loading');
+                    $('.lpResults').text('Error: Timeout').removeClass('is-hidden');
+                }, 5000);
                 $.getJSON('//midgard.thorchain.info/v2/member/' + $('.thorAddress').val(), (member) => {
                     $.getJSON('//midgard.thorchain.info/v2/pools', (pools) => {
+                        clearTimeout(timer);
+                        $('.lpStatus').removeClass('is-loading');
                         $('.lpResults').text('').removeClass('is-hidden');
                         for (const basis of member.pools) {
                             for (const current of pools) {

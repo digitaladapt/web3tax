@@ -31,7 +31,7 @@
                         </p>
                         <form class="taxForm">
                             <div class="field"><div class="control">
-                                <label class="label">THOR <input type="text" name="thor" class="input" placeholder="thor1..." autocomplete="on"></label>
+                                <label class="label">THOR <input type="text" name="thor" class="input thorAddress" placeholder="thor1..." autocomplete="on"></label>
                             </div></div><div class="field"><div class="control">
                                 <label class="label">BNB  <input type="text" name="bnb"  class="input" placeholder="bnb1..." autocomplete="on"></label>
                             </div></div><div class="field"><div class="control">
@@ -54,6 +54,11 @@
                                     <button type="submit" class="button is-info taxGo">Generate Report</button>
                                 </div><div class="control">
                                     <span class="button is-static is-info is-inverted taxStatus" style="border: none;">Status: awaiting user input.</span>
+                                </div>
+                            </div><div class="field is-grouped is-grouped-right">
+                                <div class="control">
+                                    <button type="button" class="lpStatus button is-warning">Check LP Status</button>
+                                    <p class="help">no asset-only reporting yet</p>
                                 </div>
                             </div>
                         </form>
@@ -78,6 +83,8 @@
                                     </div>
                                 </div>
                             </form>
+                        </div>
+                        <div class="lpResults is-hidden notification is-warning is-light" style="margin-top: 1em;">
                         </div>
                     </div>
                 </div>
@@ -261,6 +268,47 @@
                 });
                 // do not allow this event to propagate
                 return false;
+            });
+
+            // lp stuff
+
+            $('.lpStatus').on('click', () => {
+                // get each of the following json, loop over member, find corresponding pool, simple math, display results
+                // https://midgard.thorchain.info/v2/member/<thor1..>
+                // https://midgard.thorchain.info/v2/pools
+                $.getJSON('//midgard.thorchain.info/v2/member/' + $('.thorAddress').val(), (member) => {
+                    $.getJSON('//midgard.thorchain.info/v2/pools', (pools) => {
+                        $('.lpResults').text('').removeClass('is-hidden');
+                        for (const basis of member.pools) {
+                            for (const current of pools) {
+                                if (basis.pool !== current.asset) {
+                                    continue; // important
+                                }
+                                let runeBasis = Number(basis.runeAdded) / 100000000;
+                                let assetBasis = Number(basis.assetAdded) / 100000000;
+                                let runeCurr = (Number(basis.liquidityUnits) / Number(current.liquidityUnits)) * Number(current.runeDepth) / 100000000;
+                                let assetCurr = (Number(basis.liquidityUnits) / Number(current.liquidityUnits)) * Number(current.assetDepth) / 100000000;
+                                let runeStatus = runeCurr > runeBasis ? 'has-text-success' : 'has-text-danger';
+                                let assetStatus = assetCurr > assetBasis ? 'has-text-success' : 'has-text-danger';
+                                let runeProfit = runeCurr - runeBasis;
+                                let assetProfit = assetCurr - assetBasis;
+                                let runeUSD = Number(current.assetPriceUSD) * Number(current.assetDepth) / Number(current.runeDepth);
+                                let assetUSD = Number(current.assetPriceUSD);
+                                $('.lpResults').append(
+                                    "<div class='box'>" +
+                                    "<div class='columns is-mobile'><div class='column py-0 has-text-right'>Pool</div><div class='column py-0'>" + basis.pool.split('-')[0] + "</div></div>" +
+                                    "<div class='columns is-mobile'><div class='column py-0 has-text-right'>$RUNE Deposited</div><div class='column py-0'>" + runeBasis.toFixed(4) + "</div></div>" +
+                                    "<div class='columns is-mobile'><div class='column py-0 has-text-right'>Asset Deposited</div><div class='column py-0'>" + assetBasis.toFixed(4) + "</div></div>" +
+                                    "<div class='columns is-mobile'><div class='column py-0 has-text-right'>$RUNE Curr. Value</div><div class='column py-0'>" + runeCurr.toFixed(4) + "</div></div>" +
+                                    "<div class='columns is-mobile'><div class='column py-0 has-text-right'>Asset Curr. Value</div><div class='column py-0'>" + assetCurr.toFixed(4) + "</div></div>" +
+                                    "<div class='columns is-mobile'><div class='column py-0 has-text-right'>$RUNE Profit/Loss</div><div class='column py-0 " + runeStatus + "'>" + runeProfit.toFixed(4) + " ($" + (runeProfit * runeUSD).toFixed(2) + ")</div></div>" +
+                                    "<div class='columns is-mobile'><div class='column py-0 has-text-right'>Asset Profit/Loss</div><div class='column py-0 " + assetStatus + "'>" + assetProfit.toFixed(4) + " ($" + (assetProfit * assetUSD).toFixed(2) + ")</div></div>" +
+                                    "</div>"
+                                );
+                            }
+                        }
+                    });
+                });
             });
         });
     </script>

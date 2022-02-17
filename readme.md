@@ -14,6 +14,8 @@ ThorChain Midgard API parser written in NodeJS, with long-term plans of becoming
 ### Roadmap ###
 ThorChain related improvements (in no particular order)
 * fix rare edge-case bug: very large swaps with multiple output transactions, second output currently gets ignored.
+* Auto-switch between Midgard servers based on availability.
+* handle failed swaps better (just report cost, instead of in-trade-out)
 * Add support for $RUNE to $RUNE transactions (not provided by Midgard API).
 * Add support for stage-net (separate Midgard, Stage-RUNE asset, separate LPs, sthor addresses, etc).
 * Add support for more cost-basis, such as LIFO, etc. (if there is any community interest).

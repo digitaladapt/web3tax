@@ -10,7 +10,9 @@ ThorChain Midgard API parser written in NodeJS, with long-term plans of becoming
   Supports CSV formats for CoinTracker, CoinTracking, and Koinly.
 * 27th, Jan, 2022: Added support for $DOGE, and $RUNE Upgrade transactions.
 * 7th, Feb, 2022: Added support for CryptoTaxCalculator CSV format.
-* 16th, Feb, 2022: Open sourced the project and large code cleanup.
+* 16th, Feb, 2022: Open sourced the project.
+* 17th, Feb, 2022: "Check LP Status" button added.
+* 18th, Feb, 2022: "Check LP Status" now supports partial withdrawals.
 ### Roadmap ###
 ThorChain related improvements (in no particular order)
 * fix rare edge-case bug: very large swaps with multiple output transactions, second output currently gets ignored.
@@ -24,8 +26,10 @@ ThorChain related improvements (in no particular order)
 
 Cosmos related expansion
 * Expand into the Cosmos Universe, start with the simplest: Chihuahua Chain.
-  * Send, Receive, Stake, Un-stake, IBC Send, and IBC Receive.
+  * Send, Receive, Stake, Claim-Rewards, Un-stake, IBC Send, and IBC Receive.
   * Track re-delegation, voting, and such as misc. expenses.
+* would like to track any slashing that occurs.
+* Also, for validators, tracking commission earned.
 * When expanding to multiple Cosmos chains, automatically infer addresses by
   [bech32 conversion](https://jasbanza.github.io/convert-bech32-address/).
   (applies to most chains, known exceptions: bnb, thor, and terra)

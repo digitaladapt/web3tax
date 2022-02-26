@@ -23,7 +23,8 @@ const ASSET_DECIMAL = 8;
 const RUNE_ASSET    = 'THOR.RUNE';
 
 /* convert tor to RUNE, or sats to BTC, etc.
- * output is string, remember to wrap with Number() before doing math. */
+ * output is string, remember to wrap with Number() before doing math.
+ * notice we round all math to exactly 8 places at every step, to ensure rounding errors aren't a problem */
 export const assetAmount = (tor) => {
     return Number(tor / BASE_OFFSET).toFixed(ASSET_DECIMAL);
 };
@@ -38,7 +39,7 @@ export function Calculation(redis, key, action, config) {
         in: [{coins: [{asset: '', amount: 0}]}],
         out: [{coins: [{asset: '', amount: 0}]}],
         pools: [],
-        metadata: {addLiquidity: {liquidityUnits: 0}}
+        metadata: {addLiquidity: {liquidityUnits: 0}, withdraw: {liquidityUnits: 0}}
     }; // */
     this.config = config;
 
@@ -141,7 +142,7 @@ export function Calculation(redis, key, action, config) {
             [asset]: 0,
         };
 
-        // TODO
+        // TODO from here...
     };
 
     /* ---------------------------------------------------------------------- */
@@ -252,8 +253,50 @@ export function Calculation(redis, key, action, config) {
     /* --- internal support functions for withdrawal ------------------------ */
     /* ---------------------------------------------------------------------- */
 
-    this.calculateBasis = () => {
-        // TODO remember, since we changed how we store pooled data, this will be getting some significant changes.
-        // FIXME from here...
+    this.calculateBasis = async () => {
+        // liquidity-units actually removed, remember, this is a negative number
+        const units = Number(assetAmount(this.action.metadata.withdraw.liquidityUnits));
+
+        // the nice name of the token asset in the pool alongside RUNE
+        const asset = this.token(this.action.pools[0]);
+
+        // calculated tokens, to determine cost-basis
+        const basis = {LP: 0, RUNE: 0, [asset]: 0};
+
+        const pop  = this.config.basisMethod === 'LIFO' ? 'rPop'  : 'lPop';
+        const push = this.config.basisMethod === 'LIFO' ? 'rPush' : 'lPush';
+
+        do {
+            // calculate the (first|last)-in-first-out rune/asset sent into the liquidity pools, so we can handle the accounting correctly
+            try {
+                const deposit = JSON.parse(await this.redis[pop](this.key + '_pooled_' + this.action.pools[0]));
+
+                if (Number((deposit.LP + basis.LP + units).toFixed(8)) > 0) {
+                    const percent = (deposit.LP + basis.LP + units) / deposit.LP;
+
+                    // since we need just a portion of this current deposit, add the needed amount to our basis
+                    basis.LP     = Number((basis.LP     + deposit.LP            - (deposit.LP            * percent)).toFixed(8));
+                    basis[asset] = Number((basis[asset] + (deposit[asset] ?? 0) - ((deposit[asset] ?? 0) * percent)).toFixed(8));
+                    basis.RUNE   = Number((basis.RUNE   + (deposit.RUNE ?? 0)   - ((deposit.RUNE ?? 0)   * percent)).toFixed(8));
+
+                    // update the deposit, with the leftover, so we can track the next withdraw correctly
+                    deposit.LP     = Number((deposit.LP            * percent).toFixed(8));
+                    deposit[asset] = Number(((deposit[asset] ?? 0) * percent).toFixed(8));
+                    deposit.RUNE   = Number(((deposit.RUNE ?? 0)   * percent).toFixed(8));
+
+                    // take the leftover and put it back into the pooled, and break out of the loop
+                    await this.redis[push](this.key + '_pooled_' + this.action.pools[0], deposit);
+                    break;
+                } else {
+                    basis.LP     = Number((basis.LP     + deposit.LP           ).toFixed(8));
+                    basis[asset] = Number((basis[asset] + (deposit[asset] ?? 0)).toFixed(8));
+                    basis.RUNE   = Number((basis.RUNE   + (deposit.RUNE ?? 0)  ).toFixed(8));
+                }
+            } catch (error) {
+                throw 'missing cost-basis for pool: ' + chainToken(action.pools[0]);
+            }
+        } while (Number((basis.LP + units).toFixed(8)) < 0);
+
+        return basis;
     };
 }

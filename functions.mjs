@@ -197,6 +197,7 @@ export const normalizeConfig = (options) => {
         firstRecord:     true,
         pooled:          {}, // we add pool names as we run across them
         standardLP:      true, // log sent-to/received-from pool transactions
+        basisMethod:     'FIFO',
     };
 
     for (let [type, option] of Object.entries(options)) {
@@ -211,6 +212,9 @@ export const normalizeConfig = (options) => {
                 break;
             case 'opt-minimal':
                 config.standardLP = Boolean(option);
+                break;
+            case 'opt-lifo':
+                config.basisMethod = 'LIFO';
                 break;
             // REMEMBER: add *ALL* defaults to config init
         }

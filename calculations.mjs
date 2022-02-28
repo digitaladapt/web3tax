@@ -8,14 +8,14 @@
  * after creating/updating a record in redis, always set the expiration
  *
  * offsets applied to timestamp
+ * -2 extra steps
  * -1 receiving into RUNE wallet
  *  0 core operation
  * +1 sending from RUNE wallet
  * +2 extra steps
  */
 
-// FIXME pair down to just formatDate and chainToken... remove other dependencies
-import {calculateBasis, chainToken, formatDate, logToWallet, storeRecord, token} from "./functions.mjs";
+import {actionFee, chainToken, formatDate, outMatch, storeRecord, token} from "./functions.mjs";
 
 /* 1 RUNE === 100000000 tor; RUNE has upto 8 digits after the decimal point */
 const BASE_OFFSET   = 100000000;
@@ -142,7 +142,47 @@ export function Calculation(redis, key, action, config) {
             [asset]: 0,
         };
 
-        // TODO from here...
+        for (const received of this.action.out) {
+            coins[this.token(received.coins[0].asset)] = assetAmount(received.coins[0].amount);
+        }
+
+        // if desired, a "withdrawal" of the LP Units
+        if (this.config.detailedLP) {
+            await this.storeRecord({
+                type:       'Expense (non taxable)',
+                sellAmount: basis.LP,
+                sellCurr:   this.token(this.action.pools[0]) + '-RUNE',
+                comment:    'Received from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
+                date:       formatDate(this.action.date, -2),
+            });
+        }
+
+        // a "deposit" for each basis we get out (1 or 2)
+        // the rune withdraw request transaction fee will be included in the first "deposit"
+        if (basis.RUNE > 0) {
+            await this.storeRecord({
+                type:      'Deposit',
+                buyAmount: basis.RUNE,
+                buyCurr:   'RUNE',
+                ...this.actionFee('RUNE'),
+                comment:    'Received from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
+                date:      formatDate(this.action.date, -1),
+            });
+        }
+        if (basis[asset] > 0) {
+            await this.storeRecord({
+                type:      'Deposit',
+                buyAmount: basis[asset],
+                buyCurr:   asset,
+                ...this.actionFee('RUNE', (basis.RUNE > 0)),
+                comment:    'Received from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
+                date:      formatDate(this.action.date, -1),
+            });
+        }
+
+
+
+        // TODO FROM HERE..
     };
 
     /* ---------------------------------------------------------------------- */
@@ -194,7 +234,15 @@ export function Calculation(redis, key, action, config) {
         return Number(coins.LP);
     };
 
-    this.storeRecord = async (record) => {}; // TODO
+    this.storeRecord = async (record) => {
+        await this.redis.rPush(this.key + '_record', JSON.stringify(record));
+
+        // whenever we store a new thing, we need to set the expiration
+        if (this.config.firstRecord) {
+            this.config.firstRecord = false;
+            await this.redis.expire(this.key + '_record', process.env.TTL);
+        }
+    };
 
     /* calculate fee. if provided, asset ("RUNE", "BTC", etc) will limit only return fees of that type
      * setting skip true will bypass calculating the fee */
@@ -298,5 +346,65 @@ export function Calculation(redis, key, action, config) {
         } while (Number((basis.LP + units).toFixed(8)) < 0);
 
         return basis;
+    };
+
+    this.logLPTrade = async (buyAmount, buyCurr, sellAmount, sellCurr, skipFee, extraWithdraw) => {
+        await this.storeRecord({
+            type: 'Trade',
+            buyAmount:  buyAmount,
+            buyCurr:    buyCurr,
+            sellAmount: sellAmount,
+            sellCurr:   sellCurr,
+            ...this.actionFee(buyCurr, skipFee),
+            comment:    'Trade from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
+            date:       formatDate(this.action.date),
+        });
+
+        if (buyCurr !== 'RUNE') {
+            // notice, that we always skip the fee for the withdrawal after the trade, since we've already handled it in the trade
+            await this.logLPWithdraw(Number((buyAmount + (extraWithdraw ?? 0)).toFixed(8)), buyCurr, true);
+        }
+    };
+
+    this.logLPWithdraw = async (sellAmount, sellCurr, skipFee) => {
+        await this.storeRecord({
+            type:       'Withdrawal',
+            sellAmount: sellAmount,
+            sellCurr:   sellCurr,
+            ...this.actionFee(sellCurr, skipFee),
+            date:       formatDate(this.action.date, 2),
+            txID:       this.outMatch(sellCurr).txID,
+        });
+    };
+
+    this.logLPIncome = async (buyAmount, buyCurr, skipFee) => {
+        await this.storeRecord({
+            type: 'Staking',
+            buyAmount:  buyAmount,
+            buyCurr:    buyCurr,
+            ...this.actionFee(buyCurr, skipFee),
+            comment:    'Profit from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
+            date:       formatDate(this.action.date, 1),
+        });
+    };
+
+    this.logLPLoss = async (sellAmount, sellCurr, skipFee) => {
+        await this.storeRecord({
+            type: 'Lost',
+            sellAmount: sellAmount,
+            sellCurr:   sellCurr,
+            ...this.actionFee(sellCurr, skipFee),
+            comment:    'Loss from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
+            date:       formatDate(this.action.date, 1),
+        });
+    };
+
+    this.outMatch = (asset) => {
+        for (const sent of this.action.out) {
+            if (this.token(sent.coins[0].asset) === asset) {
+                return sent;
+            }
+        }
+        return this.action.out[0];
     };
 }

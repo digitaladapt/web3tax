@@ -575,6 +575,7 @@ export const logWithdraw = async (redis, key, action, config) => {
         });
     }
 
+    // FIXME
     // if needed, a "trade" for types:   A to B   |||   A to A/B   |||   A/B to A
     // RUNE to ASSET or ASSET to RUNE   |||   RUNE to BOTH or ASSET to BOTH   |||   BOTH to RUNE or BOTH to ASSET
     if (basis.RUNE > 0 && coins.RUNE <= 0 && basis[asset] <= 0 && coins[asset] > 0) {

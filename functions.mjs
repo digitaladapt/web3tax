@@ -5,7 +5,7 @@ import { createClient } from 'redis';
 import crypto from 'crypto';
 import { Calculation } from "./calculations.mjs";
 
-let printDetails = false; // for debugging
+// let printDetails = false; // for debugging
 
 // format given date as "YYYY-MM-DD HH:MM:SS"
 export const formatDate = (date, offset) => {
@@ -350,448 +350,447 @@ export const runProcess = async (redis, key, wallets, config) => {
 
 // asset, if provided, will scope down the returned fee only if one matches the specified asset
 // use token(), asset should be like "RUNE" or "LTC"
-export const actionFee = (action, config, asset, skipFee) => {
-    if (skipFee) {
-        return {};
-    }
+// export const actionFee = (action, config, asset, skipFee) => {
+//     if (skipFee) {
+//         return {};
+//     }
+//
+//     if (typeof asset !== 'string') {
+//         asset = null;
+//     }
+//
+//     for (const [type, entry] of Object.entries(action.metadata)) {
+//         if (entry.hasOwnProperty('networkFees')) {
+//             for (const fee of entry.networkFees) {
+//                 if (!asset || asset === token(fee.asset, config)) {
+//                     return {
+//                         fee:     Number((fee.amount / 100000000).toFixed(8)),
+//                         feeCurr: token(fee.asset, config),
+//                     };
+//                 }
+//             }
+//         }
+//
+//         // withdrawal transactions still have a transaction cost (coin-in used to be provided, now no coin, just thor address)
+//         // swaps from RUNE have also a transaction cost
+//         if (((type === 'withdraw' && ((action.in[0].coins.length === 0 && action.in[0].address.startsWith('thor1')) || action.in[0].coins[0].asset === 'THOR.RUNE'))
+//             || (type === 'swap' && action.in[0].coins[0].asset === 'THOR.RUNE' && action.out[0].coins[0].asset !== 'THOR.RUNE')
+//             || (type === 'deposit')) && (asset === 'RUNE' || !asset)) {
+//             return {
+//                 // FUTURE: remember, fee could change in the future
+//                 // I think there is a midgard command to lookup parameters like transaction fee
+//                 fee:     0.02,
+//                 feeCurr: 'RUNE',
+//             };
+//         }
+//     }
+//
+//     return {};
+// };
 
-    if (typeof asset !== 'string') {
-        asset = null;
-    }
+// export const logTrade = async (redis, key, action, config) => {
+//     await logToWallet(redis, key, action, config);
+//
+//     await storeRecord(redis, key, config, {
+//         type: 'Trade',
+//         buyAmount:  action.out[0].coins[0].amount / 100000000,
+//         buyCurr:    token(action.out[0].coins[0].asset, config),
+//         sellAmount: action.in[0].coins[0].amount / 100000000,
+//         sellCurr:   token(action.in[0].coins[0].asset, config),
+//         ...actionFee(action, config),
+//         date:       formatDate(action.date),
+//     });
+//
+//     if (action.out[0].coins[0].asset !== 'THOR.RUNE') {
+//         await storeRecord(redis, key, config, {
+//             type:       'Withdrawal',
+//             sellAmount: action.out[0].coins[0].amount / 100000000,
+//             sellCurr:   token(action.out[0].coins[0].asset, config),
+//             // notice, that we always skip the fee for the withdrawal after the trade, since we've already handled it in the trade
+//             //...actionFee(action, config, token(action.out[0].coins[0].asset, config)),
+//             date:       formatDate(action.date, 1),
+//             txID:       action.out[0].txID,
+//         });
+//     }
+// };
 
-    for (const [type, entry] of Object.entries(action.metadata)) {
-        if (entry.hasOwnProperty('networkFees')) {
-            for (const fee of entry.networkFees) {
-                if (!asset || asset === token(fee.asset, config)) {
-                    return {
-                        fee:     Number((fee.amount / 100000000).toFixed(8)),
-                        feeCurr: token(fee.asset, config),
-                    };
-                }
-            }
-        }
+// export const logLPTrade = async (redis, key, buyAmount, buyCurr, sellAmount, sellCurr, action, config, skipFee, extraWithdraw) => {
+//     const date = formatDate(action.date);
+//
+//     await storeRecord(redis, key, config, {
+//         type: 'Trade',
+//         buyAmount:  buyAmount,
+//         buyCurr:    buyCurr,
+//         sellAmount: sellAmount,
+//         sellCurr:   sellCurr,
+//         ...actionFee(action, config, buyCurr, skipFee),
+//         comment:    'Trade from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
+//         date:       date,
+//     });
+//
+//     if (buyCurr !== 'RUNE') {
+//         // notice, that we always skip the fee for the withdrawal after the trade, since we've already handled it in the trade
+//         await logLPWithdraw(redis, key, Number((buyAmount + (extraWithdraw ?? 0)).toFixed(8)), buyCurr, action, config, true);
+//     }
+// };
 
-        // withdrawal transactions still have a transaction cost (coin-in used to be provided, now no coin, just thor address)
-        // swaps from RUNE have also a transaction cost
-        if (((type === 'withdraw' && ((action.in[0].coins.length === 0 && action.in[0].address.startsWith('thor1')) || action.in[0].coins[0].asset === 'THOR.RUNE'))
-            || (type === 'swap' && action.in[0].coins[0].asset === 'THOR.RUNE' && action.out[0].coins[0].asset !== 'THOR.RUNE')
-            || (type === 'deposit')) && (asset === 'RUNE' || !asset)) {
-            return {
-                // FUTURE TODO: remember, fee could change in the future
-                // I think there is a midgard command to lookup parameters like transaction fee
-                fee:     0.02,
-                feeCurr: 'RUNE',
-            };
-        }
-    }
+// export const logLPWithdraw = async (redis, key, sellAmount, sellCurr, action, config, skipFee) => {
+//     const date = formatDate(action.date, 2);
+//
+//     await storeRecord(redis, key, config, {
+//         type:       'Withdrawal',
+//         sellAmount: sellAmount,
+//         sellCurr:   sellCurr,
+//         ...actionFee(action, config, sellCurr, skipFee),
+//         date:       date,
+//         txID:       outMatch(action, sellCurr, config).txID,
+//     });
+// };
 
-    return {};
-};
+// export const logLPIncome = async (redis, key, buyAmount, buyCurr, action, config, skipFee) => {
+//     const date = formatDate(action.date, 1);
+//
+//     await storeRecord(redis, key, config, {
+//         type: 'Staking',
+//         buyAmount:  buyAmount,
+//         buyCurr:    buyCurr,
+//         ...actionFee(action, config, buyCurr, skipFee),
+//         comment:    'Profit from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
+//         date:       date,
+//     });
+// };
 
-export const logTrade = async (redis, key, action, config) => {
-    await logToWallet(redis, key, action, config);
+// export const logLPLoss = async (redis, key, sellAmount, sellCurr, action, config, skipFee) => {
+//     const date = formatDate(action.date, 1);
+//
+//     await storeRecord(redis, key, config, {
+//         type: 'Lost',
+//         sellAmount: sellAmount,
+//         sellCurr:   sellCurr,
+//         ...actionFee(action, config, sellCurr, skipFee),
+//         comment:    'Loss from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
+//         date:       date,
+//     });
+// };
 
-    await storeRecord(redis, key, config, {
-        type: 'Trade',
-        buyAmount:  action.out[0].coins[0].amount / 100000000,
-        buyCurr:    token(action.out[0].coins[0].asset, config),
-        sellAmount: action.in[0].coins[0].amount / 100000000,
-        sellCurr:   token(action.in[0].coins[0].asset, config),
-        ...actionFee(action, config),
-        date:       formatDate(action.date),
-    });
-
-    if (action.out[0].coins[0].asset !== 'THOR.RUNE') {
-        await storeRecord(redis, key, config, {
-            type:       'Withdrawal',
-            sellAmount: action.out[0].coins[0].amount / 100000000,
-            sellCurr:   token(action.out[0].coins[0].asset, config),
-            // notice, that we always skip the fee for the withdrawal after the trade, since we've already handled it in the trade
-            //...actionFee(action, config, token(action.out[0].coins[0].asset, config)),
-            date:       formatDate(action.date, 1),
-            txID:       action.out[0].txID,
-        });
-    }
-};
-
-export const logLPTrade = async (redis, key, buyAmount, buyCurr, sellAmount, sellCurr, action, config, skipFee, extraWithdraw) => {
-    const date = formatDate(action.date);
-
-    await storeRecord(redis, key, config, {
-        type: 'Trade',
-        buyAmount:  buyAmount,
-        buyCurr:    buyCurr,
-        sellAmount: sellAmount,
-        sellCurr:   sellCurr,
-        ...actionFee(action, config, buyCurr, skipFee),
-        comment:    'Trade from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
-        date:       date,
-    });
-
-    if (buyCurr !== 'RUNE') {
-        // notice, that we always skip the fee for the withdrawal after the trade, since we've already handled it in the trade
-        await logLPWithdraw(redis, key, Number((buyAmount + (extraWithdraw ?? 0)).toFixed(8)), buyCurr, action, config, true);
-    }
-};
-
-export const logLPWithdraw = async (redis, key, sellAmount, sellCurr, action, config, skipFee) => {
-    const date = formatDate(action.date, 2);
-
-    await storeRecord(redis, key, config, {
-        type:       'Withdrawal',
-        sellAmount: sellAmount,
-        sellCurr:   sellCurr,
-        ...actionFee(action, config, sellCurr, skipFee),
-        date:       date,
-        txID:       outMatch(action, sellCurr, config).txID,
-    });
-};
-
-export const logLPIncome = async (redis, key, buyAmount, buyCurr, action, config, skipFee) => {
-    const date = formatDate(action.date, 1);
-
-    await storeRecord(redis, key, config, {
-        type: 'Staking',
-        buyAmount:  buyAmount,
-        buyCurr:    buyCurr,
-        ...actionFee(action, config, buyCurr, skipFee),
-        comment:    'Profit from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
-        date:       date,
-    });
-};
-
-export const logLPLoss = async (redis, key, sellAmount, sellCurr, action, config, skipFee) => {
-    const date = formatDate(action.date, 1);
-
-    await storeRecord(redis, key, config, {
-        type: 'Lost',
-        sellAmount: sellAmount,
-        sellCurr:   sellCurr,
-        ...actionFee(action, config, sellCurr, skipFee),
-        comment:    'Loss from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
-        date:       date,
-    });
-};
-
-export const outMatch = (action, asset, config) => {
-    for (const sent of action.out) {
-        if (token(sent.coins[0].asset, config) === asset) {
-            return sent;
-        }
-    }
-    return action.out[0];
-};
+// export const outMatch = (action, asset, config) => {
+//     for (const sent of action.out) {
+//         if (token(sent.coins[0].asset, config) === asset) {
+//             return sent;
+//         }
+//     }
+//     return action.out[0];
+// };
 
 // remember: pooled uses the full pool asset name, not the nice token name
 // so that "BNB.ETH-1C9" and "ETH.ETH" are separate, instead of both being simply "ETH"
-const pooled = {};
-export const logDeposit = async (redis, key, action, config) => {
-    const units = await logToWallet(redis, key, action, config);
-    //console.log(pooled);
+// const pooled = {};
+// export const logDeposit = async (redis, key, action, config) => {
+//     const units = await logToWallet(redis, key, action, config);
+//     //console.log(pooled);
+//
+//     // then a "withdrawal" transaction for each asset sent into the pool
+//     for (const sent of action.in) {
+//         await storeRecord(redis, key, config, {
+//             type:       'Withdrawal',
+//             sellAmount: sent.coins[0].amount / 100000000,
+//             sellCurr:   token(sent.coins[0].asset, config),
+//             comment:    'Sent to Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
+//             ...actionFee(action, config, token(sent.coins[0].asset, config)),
+//             date:       formatDate(action.date),
+//         });
+//     }
+//
+//     // then (optionally), a "non-taxable income" for the liquidity units
+//     if (config.detailedLP) {
+//         await storeRecord(redis, key, config, {
+//             type:      'Income (non taxable)',
+//             buyAmount: units,
+//             buyCurr:   token(action.pools[0], config) + '-RUNE',
+//             comment:   'Sent to Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
+//             date:      formatDate(action.date, 1),
+//         });
+//     }
+// };
 
-    // then a "withdrawal" transaction for each asset sent into the pool
-    for (const sent of action.in) {
-        await storeRecord(redis, key, config, {
-            type:       'Withdrawal',
-            sellAmount: sent.coins[0].amount / 100000000,
-            sellCurr:   token(sent.coins[0].asset, config),
-            comment:    'Sent to Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
-            ...actionFee(action, config, token(sent.coins[0].asset, config)),
-            date:       formatDate(action.date),
-        });
-    }
+// export const logWithdraw = async (redis, key, action, config) => {
+//     //printDetails = true;
+//
+//     // the nice name of the token asset in the pool alongside RUNE
+//     const asset = token(action.pools[0], config);
+//
+//     // calculated tokens, to determine cost-basis, currently just first-in-first-out, but should work on supporting more
+//     const basis = calculateBasis(action, config);
+//
+//     // coins actually received (note we initialize to zero, so we know the keys exist within the object)
+//     const coins = {
+//         RUNE: 0,
+//         [asset]: 0,
+//     };
+//
+//     for (const received of action.out) {
+//         coins[token(received.coins[0].asset, config)] = received.coins[0].amount / 100000000;
+//     }
+//
+//     //console.log('basis:', basis, ', coins:', coins);
+//
+//     // we now have how much we originally deposited (in "basis"), and how much was actually withdrawn (in "coins")
+//     //console.log('withdrawing basis: ' + JSON.stringify(basis) + ', from the pool: ' + chainToken(action.pools[0]) + ', resulting in an outcome of: ' + JSON.stringify(coins));
+//
+//     // okay, here is where it gets complicated, since ThorChain has asymmetrical liquidity pools,
+//     // there are a number of possible cases to handle; one example is when withdrawing (after depositing both asset/rune),
+//     // the user can withdraw the value as just rune if desired, so to track it properly, a "trade" needs to be logged.
+//
+//     // if desired, a "withdrawal" of the LP Units
+//     if (config.detailedLP) {
+//         await storeRecord(redis, key, config, {
+//             type:       'Expense (non taxable)',
+//             sellAmount: basis.LP,
+//             sellCurr:   token(action.pools[0], config) + '-RUNE',
+//             comment:    'Received from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
+//             date:       formatDate(action.date, -2),
+//         });
+//     }
+//
+//     // a "deposit" for each basis we get out (1 or 2)
+//     // the rune withdraw request transaction fee will be included in the first "deposit"
+//     if (basis.RUNE > 0) {
+//         await storeRecord(redis, key, config, {
+//             type:      'Deposit',
+//             buyAmount: basis.RUNE,
+//             buyCurr:   'RUNE',
+//             ...actionFee(action, config, 'RUNE'),
+//             comment:    'Received from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
+//             date:      formatDate(action.date, -1),
+//         });
+//     }
+//     if (basis[asset] > 0) {
+//         await storeRecord(redis, key, config, {
+//             type:      'Deposit',
+//             buyAmount: basis[asset],
+//             buyCurr:   asset,
+//             ...actionFee(action, config, 'RUNE', (basis.RUNE > 0)),
+//             comment:    'Received from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
+//             date:      formatDate(action.date, -1),
+//         });
+//     }
+//
+//     // if needed, a "trade" for types:   A to B   |||   A to A/B   |||   A/B to A
+//     // RUNE to ASSET or ASSET to RUNE   |||   RUNE to BOTH or ASSET to BOTH   |||   BOTH to RUNE or BOTH to ASSET
+//     if (basis.RUNE > 0 && coins.RUNE <= 0 && basis[asset] <= 0 && coins[asset] > 0) {
+//         //console.log('RUNE to ASSET');
+//         await logLPTrade(redis, key, coins[asset], asset, basis.RUNE, 'RUNE', action, config);
+//     } else if (basis.RUNE <= 0 && coins.RUNE > 0 && basis[asset] > 0 && coins[asset] <= 0) {
+//         //console.log('ASSET to RUNE');
+//         await logLPTrade(redis, key, coins.RUNE, 'RUNE', basis[asset], asset, action, config);
+//     } else if (basis.RUNE > 0 && coins.RUNE > 0 && basis[asset] <= 0 && coins[asset] > 0) {
+//         //console.log('RUNE to BOTH');
+//         // so we convert half the basis.RUNE into coins[asset], then income/loss the difference between half the basis.RUNE and the coins.RUNE
+//         // remember "half" doesn't always divide evenly, so we'll have to do basis-newBasis for the other half
+//         const newBasis = Number((basis.RUNE / 2).toFixed(8));
+//         await logLPTrade(redis, key, coins[asset], asset, Number((basis.RUNE - newBasis).toFixed(8)), 'RUNE', action, config);
+//         if (newBasis < coins.RUNE) {
+//             // additionally, we have a profit of RUNE to report as income
+//             await logLPIncome(redis, key, Number((coins.RUNE - newBasis).toFixed(8)), 'RUNE', action, config, true);
+//         } else if (newBasis > coins.RUNE) {
+//             // additionally, we have a loss of RUNE to report as loss
+//             await logLPLoss(redis, key, Number((newBasis - coins.RUNE).toFixed(8)), 'RUNE', action, config, true);
+//         } // notice if exactly equal, no income/loss transaction to log
+//     } else if (basis.RUNE <= 0 && coins.RUNE > 0 && basis[asset] > 0 && coins[asset] > 0) {
+//         //console.log('ASSET to BOTH');
+//         // so we convert half the basis[asset] into coins.RUNE, then income/loss the difference between half the basis[asset] and the coins[asset]
+//         // remember "half" doesn't always divide evenly, so we'll have to do basis-newBasis for the other half
+//         const newBasis = Number((basis[asset] / 2).toFixed(8));
+//         await logLPTrade(redis, key, coins.RUNE, 'RUNE', Number((basis[asset] - newBasis).toFixed(8)), asset, action, config);
+//         if (newBasis < coins[asset]) {
+//             // additionally, we have a profit of ASSET to report as income
+//             await logLPIncome(redis, key, Number((coins[asset] - newBasis).toFixed(8)), asset, action, config, true);
+//         } else if (newBasis > coins[asset]) {
+//             // additionally, we have a loss of ASSET to report as loss
+//             await logLPLoss(redis, key, Number((newBasis - coins[asset]).toFixed(8)), asset, action, config, true);
+//         } // notice if exactly equal, no income/loss transaction to log
+//     } else if (basis.RUNE > 0 && coins.RUNE > 0 && basis[asset] > 0 && coins[asset] <= 0) {
+//         //console.log('BOTH to RUNE');
+//         // so we convert asset to rune, if basis.RUNE < coins.RUNE, just take the difference, as the output of the trade
+//         // however, if basis.RUNE >= coins.RUNE, we'll report all the losses
+//         if (basis.RUNE < coins.RUNE) {
+//             await logLPTrade(redis, key, Number((coins.RUNE - basis.RUNE).toFixed(8)), 'RUNE', basis[asset], asset, action, config);
+//         } else {
+//             // unlikely case: started with both assets, withdraw as RUNE, but got less RUNE than was deposited, multiple losses
+//             await logLPLoss(redis, key, basis[asset], asset, action, config);
+//             if (basis.RUNE > coins.RUNE) {
+//                 await logLPLoss(redis, key, Number((basis.RUNE - coins.RUNE).toFixed(8)), 'RUNE', action, config, true);
+//             }
+//         }
+//     } else if (basis.RUNE > 0 && coins.RUNE <= 0 && basis[asset] > 0 && coins[asset] > 0) {
+//         //console.log('BOTH to ASSET');
+//         // so we convert rune to asset, if basis[asset] < coins[asset], just take the difference, as the output of the trade
+//         // however, if basis[asset] >= coins[asset], we'll report all the losses
+//         if (basis[asset] < coins[asset]) {
+//             // note the final extra parameter, which adds back in the basis, for the withdrawal
+//             await logLPTrade(redis, key, Number((coins[asset] - basis[asset]).toFixed(8)), asset, basis.RUNE, 'RUNE', action, config, false, basis[asset]);
+//         } else {
+//             // unlikely case: started with both assets, withdraw as asset, but got less asset than was deposited, multiple losses
+//             await logLPLoss(redis, key, basis.RUNE, 'RUNE', action, config);
+//             if (basis[asset] > coins[asset]) {
+//                 await logLPLoss(redis, key, Number((basis[asset] - coins[asset]).toFixed(8)), asset, action, config, true);
+//             }
+//         }
+//     } else if (basis.RUNE <= 0 && coins.RUNE <= 0 && basis[asset] > 0 && coins[asset] > 0) {
+//         //console.log('ASSET to ASSET');
+//         // simple profit/loss and withdrawal
+//         if (basis[asset] < coins[asset]) {
+//             await logLPIncome(redis, key, Number((coins[asset] - basis[asset]).toFixed(8)), asset, action, config);
+//         } else if (basis[asset] > coins[asset]) {
+//             await logLPLoss(redis, key, Number((basis[asset] - coins[asset]).toFixed(8)), asset, action, config);
+//         } // notice if exactly equal, no income/loss transaction to log
+//
+//         await logLPWithdraw(redis, key, coins[asset], asset, action, config, true);
+//     } else if (basis.RUNE > 0 && coins.RUNE > 0 && basis[asset] <= 0 && coins[asset] <= 0) {
+//         //console.log('RUNE to RUNE');
+//         // simple profit/loss
+//         if (basis.RUNE < coins.RUNE) {
+//             await logLPIncome(redis, key, Number((coins.RUNE - basis.RUNE).toFixed(8)), 'RUNE', action, config);
+//         } else if (basis.RUNE > coins.RUNE) {
+//             await logLPLoss(redis, key, Number((basis.RUNE - coins.RUNE).toFixed(8)), 'RUNE', action, config);
+//         } // notice if exactly equal, no income/loss transaction to log
+//     } else if (basis.RUNE > 0 && coins.RUNE > 0 && basis[asset] > 0 && coins[asset] > 0) {
+//         //console.log('BOTH to BOTH');
+//
+//         // simple profit/loss for RUNE
+//         if (basis.RUNE < coins.RUNE) {
+//             await logLPIncome(redis, key, Number((coins.RUNE - basis.RUNE).toFixed(8)), 'RUNE', action, config);
+//         } else if (basis.RUNE > coins.RUNE) {
+//             await logLPLoss(redis, key, Number((basis.RUNE - coins.RUNE).toFixed(8)), 'RUNE', action, config);
+//         } // notice if exactly equal, no income/loss transaction to log
+//
+//         // simple profit/loss and withdrawal for ASSET
+//         if (basis[asset] < coins[asset]) {
+//             await logLPIncome(redis, key, Number((coins[asset] - basis[asset]).toFixed(8)), asset, action, config);
+//         } else if (basis[asset] > coins[asset]) {
+//             await logLPLoss(redis, key, Number((basis[asset] - coins[asset]).toFixed(8)), asset, action, config);
+//         } // notice if exactly equal, no income/loss transaction to log
+//
+//         await logLPWithdraw(redis, key, coins[asset], asset, action, config, true);
+//     } else {
+//         console.log('Error: Unhandled Case: basis:', basis, 'coins:', coins);
+//         throw 'system error during calculating withdrawal';
+//     }
+//
+//     //printDetails = false;
+//     //console.log('---------------');
+// };
 
-    // then (optionally), a "non-taxable income" for the liquidity units
-    if (config.detailedLP) {
-        await storeRecord(redis, key, config, {
-            type:      'Income (non taxable)',
-            buyAmount: units,
-            buyCurr:   token(action.pools[0], config) + '-RUNE',
-            comment:   'Sent to Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
-            date:      formatDate(action.date, 1),
-        });
-    }
-};
+// export const calculateBasis = (action, config) => {
+//     // liquidity-units actually removed, remember, this is a negative number
+//     const units = Number(action.metadata.withdraw.liquidityUnits) / 100000000;
+//
+//     // the nice name of the token asset in the pool alongside RUNE
+//     const asset = token(action.pools[0], config);
+//
+//     // calculated tokens, to determine cost-basis, currently just first-in-first-out, but should work on supporting more
+//     const basis = {LP: 0, RUNE: 0, [asset]: 0};
+//     do {
+//         // calculate the first-in-first-out rune/asset sent into the liquidity pools, so we can handle the accounting correctly
+//         // notice we round all math to exactly 8 places at every step, to ensure rounding errors aren't a problem
+//         const deposit = pooled[action.pools[0]]?.shift();
+//         if (deposit) {
+//             if (Number((deposit.LP + basis.LP + units).toFixed(8)) > 0) {
+//                 const percent = (deposit.LP + basis.LP + units) / deposit.LP;
+//
+//                 // since we need just a portion of this current deposit, add the needed amount to our basis
+//                 basis.LP     = Number((basis.LP     + deposit.LP            - (deposit.LP            * percent)).toFixed(8));
+//                 basis[asset] = Number((basis[asset] + (deposit[asset] ?? 0) - ((deposit[asset] ?? 0) * percent)).toFixed(8));
+//                 basis.RUNE   = Number((basis.RUNE   + (deposit.RUNE ?? 0)   - ((deposit.RUNE ?? 0)   * percent)).toFixed(8));
+//
+//                 // update the deposit, with the leftover, so we can track the next withdraw correctly
+//                 deposit.LP     = Number((deposit.LP            * percent).toFixed(8));
+//                 deposit[asset] = Number(((deposit[asset] ?? 0) * percent).toFixed(8));
+//                 deposit.RUNE   = Number(((deposit.RUNE ?? 0)   * percent).toFixed(8));
+//
+//                 // take the leftover and put it back into the pooled, and break out of the loop
+//                 pooled[action.pools[0]].unshift(deposit);
+//                 break;
+//             } else {
+//                 basis.LP     = Number((basis.LP     + deposit.LP           ).toFixed(8));
+//                 basis[asset] = Number((basis[asset] + (deposit[asset] ?? 0)).toFixed(8));
+//                 basis.RUNE   = Number((basis.RUNE   + (deposit.RUNE ?? 0)  ).toFixed(8));
+//             }
+//         } else {
+//             throw 'missing cost-basis for pool: ' + chainToken(action.pools[0]);
+//         }
+//     } while (Number((basis.LP + units).toFixed(8)) < 0);
+//
+//     return basis;
+// };
 
-export const logWithdraw = async (redis, key, action, config) => {
-    //printDetails = true;
-
-    // the nice name of the token asset in the pool alongside RUNE
-    const asset = token(action.pools[0], config);
-
-    // calculated tokens, to determine cost-basis, currently just first-in-first-out, but should work on supporting more
-    const basis = calculateBasis(action, config);
-
-    // coins actually received (note we initialize to zero, so we know the keys exist within the object)
-    const coins = {
-        RUNE: 0,
-        [asset]: 0,
-    };
-
-    for (const received of action.out) {
-        coins[token(received.coins[0].asset, config)] = received.coins[0].amount / 100000000;
-    }
-
-    //console.log('basis:', basis, ', coins:', coins);
-
-    // we now have how much we originally deposited (in "basis"), and how much was actually withdrawn (in "coins")
-    //console.log('withdrawing basis: ' + JSON.stringify(basis) + ', from the pool: ' + chainToken(action.pools[0]) + ', resulting in an outcome of: ' + JSON.stringify(coins));
-
-    // okay, here is where it gets complicated, since ThorChain has asymmetrical liquidity pools,
-    // there are a number of possible cases to handle; one example is when withdrawing (after depositing both asset/rune),
-    // the user can withdraw the value as just rune if desired, so to track it properly, a "trade" needs to be logged.
-
-    // if desired, a "withdrawal" of the LP Units
-    if (config.detailedLP) {
-        await storeRecord(redis, key, config, {
-            type:       'Expense (non taxable)',
-            sellAmount: basis.LP,
-            sellCurr:   token(action.pools[0], config) + '-RUNE',
-            comment:    'Received from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
-            date:       formatDate(action.date, -2),
-        });
-    }
-
-    // a "deposit" for each basis we get out (1 or 2)
-    // the rune withdraw request transaction fee will be included in the first "deposit"
-    if (basis.RUNE > 0) {
-        await storeRecord(redis, key, config, {
-            type:      'Deposit',
-            buyAmount: basis.RUNE,
-            buyCurr:   'RUNE',
-            ...actionFee(action, config, 'RUNE'),
-            comment:    'Received from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
-            date:      formatDate(action.date, -1),
-        });
-    }
-    if (basis[asset] > 0) {
-        await storeRecord(redis, key, config, {
-            type:      'Deposit',
-            buyAmount: basis[asset],
-            buyCurr:   asset,
-            ...actionFee(action, config, 'RUNE', (basis.RUNE > 0)),
-            comment:    'Received from Pool: ' + chainToken(action.pools[0]) + '/THOR.RUNE',
-            date:      formatDate(action.date, -1),
-        });
-    }
-
-    // FIXME
-    // if needed, a "trade" for types:   A to B   |||   A to A/B   |||   A/B to A
-    // RUNE to ASSET or ASSET to RUNE   |||   RUNE to BOTH or ASSET to BOTH   |||   BOTH to RUNE or BOTH to ASSET
-    if (basis.RUNE > 0 && coins.RUNE <= 0 && basis[asset] <= 0 && coins[asset] > 0) {
-        //console.log('RUNE to ASSET');
-        await logLPTrade(redis, key, coins[asset], asset, basis.RUNE, 'RUNE', action, config);
-    } else if (basis.RUNE <= 0 && coins.RUNE > 0 && basis[asset] > 0 && coins[asset] <= 0) {
-        //console.log('ASSET to RUNE');
-        await logLPTrade(redis, key, coins.RUNE, 'RUNE', basis[asset], asset, action, config);
-    } else if (basis.RUNE > 0 && coins.RUNE > 0 && basis[asset] <= 0 && coins[asset] > 0) {
-        //console.log('RUNE to BOTH');
-        // so we convert half the basis.RUNE into coins[asset], then income/loss the difference between half the basis.RUNE and the coins.RUNE
-        // remember "half" doesn't always divide evenly, so we'll have to do basis-newBasis for the other half
-        const newBasis = Number((basis.RUNE / 2).toFixed(8));
-        await logLPTrade(redis, key, coins[asset], asset, Number((basis.RUNE - newBasis).toFixed(8)), 'RUNE', action, config);
-        if (newBasis < coins.RUNE) {
-            // additionally, we have a profit of RUNE to report as income
-            await logLPIncome(redis, key, Number((coins.RUNE - newBasis).toFixed(8)), 'RUNE', action, config, true);
-        } else if (newBasis > coins.RUNE) {
-            // additionally, we have a loss of RUNE to report as loss
-            await logLPLoss(redis, key, Number((newBasis - coins.RUNE).toFixed(8)), 'RUNE', action, config, true);
-        } // notice if exactly equal, no income/loss transaction to log
-    } else if (basis.RUNE <= 0 && coins.RUNE > 0 && basis[asset] > 0 && coins[asset] > 0) {
-        //console.log('ASSET to BOTH');
-        // so we convert half the basis[asset] into coins.RUNE, then income/loss the difference between half the basis[asset] and the coins[asset]
-        // remember "half" doesn't always divide evenly, so we'll have to do basis-newBasis for the other half
-        const newBasis = Number((basis[asset] / 2).toFixed(8));
-        await logLPTrade(redis, key, coins.RUNE, 'RUNE', Number((basis[asset] - newBasis).toFixed(8)), asset, action, config);
-        if (newBasis < coins[asset]) {
-            // additionally, we have a profit of ASSET to report as income
-            await logLPIncome(redis, key, Number((coins[asset] - newBasis).toFixed(8)), asset, action, config, true);
-        } else if (newBasis > coins[asset]) {
-            // additionally, we have a loss of ASSET to report as loss
-            await logLPLoss(redis, key, Number((newBasis - coins[asset]).toFixed(8)), asset, action, config, true);
-        } // notice if exactly equal, no income/loss transaction to log
-    } else if (basis.RUNE > 0 && coins.RUNE > 0 && basis[asset] > 0 && coins[asset] <= 0) {
-        //console.log('BOTH to RUNE');
-        // so we convert asset to rune, if basis.RUNE < coins.RUNE, just take the difference, as the output of the trade
-        // however, if basis.RUNE >= coins.RUNE, we'll report all the losses
-        if (basis.RUNE < coins.RUNE) {
-            await logLPTrade(redis, key, Number((coins.RUNE - basis.RUNE).toFixed(8)), 'RUNE', basis[asset], asset, action, config);
-        } else {
-            // unlikely case: started with both assets, withdraw as RUNE, but got less RUNE than was deposited, multiple losses
-            await logLPLoss(redis, key, basis[asset], asset, action, config);
-            if (basis.RUNE > coins.RUNE) {
-                await logLPLoss(redis, key, Number((basis.RUNE - coins.RUNE).toFixed(8)), 'RUNE', action, config, true);
-            }
-        }
-    } else if (basis.RUNE > 0 && coins.RUNE <= 0 && basis[asset] > 0 && coins[asset] > 0) {
-        //console.log('BOTH to ASSET');
-        // so we convert rune to asset, if basis[asset] < coins[asset], just take the difference, as the output of the trade
-        // however, if basis[asset] >= coins[asset], we'll report all the losses
-        if (basis[asset] < coins[asset]) {
-            // note the final extra parameter, which adds back in the basis, for the withdrawal
-            await logLPTrade(redis, key, Number((coins[asset] - basis[asset]).toFixed(8)), asset, basis.RUNE, 'RUNE', action, config, false, basis[asset]);
-        } else {
-            // unlikely case: started with both assets, withdraw as asset, but got less asset than was deposited, multiple losses
-            await logLPLoss(redis, key, basis.RUNE, 'RUNE', action, config);
-            if (basis[asset] > coins[asset]) {
-                await logLPLoss(redis, key, Number((basis[asset] - coins[asset]).toFixed(8)), asset, action, config, true);
-            }
-        }
-    } else if (basis.RUNE <= 0 && coins.RUNE <= 0 && basis[asset] > 0 && coins[asset] > 0) {
-        //console.log('ASSET to ASSET');
-        // simple profit/loss and withdrawal
-        if (basis[asset] < coins[asset]) {
-            await logLPIncome(redis, key, Number((coins[asset] - basis[asset]).toFixed(8)), asset, action, config);
-        } else if (basis[asset] > coins[asset]) {
-            await logLPLoss(redis, key, Number((basis[asset] - coins[asset]).toFixed(8)), asset, action, config);
-        } // notice if exactly equal, no income/loss transaction to log
-
-        await logLPWithdraw(redis, key, coins[asset], asset, action, config, true);
-    } else if (basis.RUNE > 0 && coins.RUNE > 0 && basis[asset] <= 0 && coins[asset] <= 0) {
-        //console.log('RUNE to RUNE');
-        // simple profit/loss
-        if (basis.RUNE < coins.RUNE) {
-            await logLPIncome(redis, key, Number((coins.RUNE - basis.RUNE).toFixed(8)), 'RUNE', action, config);
-        } else if (basis.RUNE > coins.RUNE) {
-            await logLPLoss(redis, key, Number((basis.RUNE - coins.RUNE).toFixed(8)), 'RUNE', action, config);
-        } // notice if exactly equal, no income/loss transaction to log
-    } else if (basis.RUNE > 0 && coins.RUNE > 0 && basis[asset] > 0 && coins[asset] > 0) {
-        //console.log('BOTH to BOTH');
-
-        // simple profit/loss for RUNE
-        if (basis.RUNE < coins.RUNE) {
-            await logLPIncome(redis, key, Number((coins.RUNE - basis.RUNE).toFixed(8)), 'RUNE', action, config);
-        } else if (basis.RUNE > coins.RUNE) {
-            await logLPLoss(redis, key, Number((basis.RUNE - coins.RUNE).toFixed(8)), 'RUNE', action, config);
-        } // notice if exactly equal, no income/loss transaction to log
-
-        // simple profit/loss and withdrawal for ASSET
-        if (basis[asset] < coins[asset]) {
-            await logLPIncome(redis, key, Number((coins[asset] - basis[asset]).toFixed(8)), asset, action, config);
-        } else if (basis[asset] > coins[asset]) {
-            await logLPLoss(redis, key, Number((basis[asset] - coins[asset]).toFixed(8)), asset, action, config);
-        } // notice if exactly equal, no income/loss transaction to log
-
-        await logLPWithdraw(redis, key, coins[asset], asset, action, config, true);
-    } else {
-        console.log('Error: Unhandled Case: basis:', basis, 'coins:', coins);
-        throw 'system error during calculating withdrawal';
-    }
-
-    //printDetails = false;
-    //console.log('---------------');
-};
-
-export const calculateBasis = (action, config) => {
-    // liquidity-units actually removed, remember, this is a negative number
-    const units = Number(action.metadata.withdraw.liquidityUnits) / 100000000;
-
-    // the nice name of the token asset in the pool alongside RUNE
-    const asset = token(action.pools[0], config);
-
-    // calculated tokens, to determine cost-basis, currently just first-in-first-out, but should work on supporting more
-    const basis = {LP: 0, RUNE: 0, [asset]: 0};
-    do {
-        // calculate the first-in-first-out rune/asset sent into the liquidity pools, so we can handle the accounting correctly
-        // notice we round all math to exactly 8 places at every step, to ensure rounding errors aren't a problem
-        const deposit = pooled[action.pools[0]]?.shift();
-        if (deposit) {
-            if (Number((deposit.LP + basis.LP + units).toFixed(8)) > 0) {
-                const percent = (deposit.LP + basis.LP + units) / deposit.LP;
-
-                // since we need just a portion of this current deposit, add the needed amount to our basis
-                basis.LP     = Number((basis.LP     + deposit.LP            - (deposit.LP            * percent)).toFixed(8));
-                basis[asset] = Number((basis[asset] + (deposit[asset] ?? 0) - ((deposit[asset] ?? 0) * percent)).toFixed(8));
-                basis.RUNE   = Number((basis.RUNE   + (deposit.RUNE ?? 0)   - ((deposit.RUNE ?? 0)   * percent)).toFixed(8));
-
-                // update the deposit, with the leftover, so we can track the next withdraw correctly
-                deposit.LP     = Number((deposit.LP            * percent).toFixed(8));
-                deposit[asset] = Number(((deposit[asset] ?? 0) * percent).toFixed(8));
-                deposit.RUNE   = Number(((deposit.RUNE ?? 0)   * percent).toFixed(8));
-
-                // take the leftover and put it back into the pooled, and break out of the loop
-                pooled[action.pools[0]].unshift(deposit);
-                break;
-            } else {
-                basis.LP     = Number((basis.LP     + deposit.LP           ).toFixed(8));
-                basis[asset] = Number((basis[asset] + (deposit[asset] ?? 0)).toFixed(8));
-                basis.RUNE   = Number((basis.RUNE   + (deposit.RUNE ?? 0)  ).toFixed(8));
-            }
-        } else {
-            throw 'missing cost-basis for pool: ' + chainToken(action.pools[0]);
-        }
-    } while (Number((basis.LP + units).toFixed(8)) < 0);
-
-    return basis;
-};
-
-export const logUpgrade = async (redis, key, action, config) => {
-    if (config.includeUpgrades) {
-        // log move to wallet before upgrade
-        await logToWallet(redis, key, action, config);
-
-        // optional, since people may or may not want that
-        await storeRecord(redis, key, config, {
-            type: 'Trade',
-            buyAmount:  action.out[0].coins[0].amount / 100000000,
-            buyCurr:    token(action.out[0].coins[0].asset, config),
-            sellAmount: action.in[0].coins[0].amount / 100000000,
-            sellCurr:   token(action.in[0].coins[0].asset, config),
-            // no fees for upgrades (beyond external chain transaction fee)
-            comment:    'Upgraded ' + chainToken(action.in[0].coins[0].asset),
-            date:       formatDate(action.date),
-        });
-    } else {
-        // even if people don't consider the upgrade a trade, it still moved to this wallet
-        await logToWallet(redis, key, action, config, 'Upgraded ' + chainToken(action.in[0].coins[0].asset));
-    }
-};
+// export const logUpgrade = async (redis, key, action, config) => {
+//     if (config.includeUpgrades) {
+//         // log move to wallet before upgrade
+//         await logToWallet(redis, key, action, config);
+//
+//         // optional, since people may or may not want that
+//         await storeRecord(redis, key, config, {
+//             type: 'Trade',
+//             buyAmount:  action.out[0].coins[0].amount / 100000000,
+//             buyCurr:    token(action.out[0].coins[0].asset, config),
+//             sellAmount: action.in[0].coins[0].amount / 100000000,
+//             sellCurr:   token(action.in[0].coins[0].asset, config),
+//             // no fees for upgrades (beyond external chain transaction fee)
+//             comment:    'Upgraded ' + chainToken(action.in[0].coins[0].asset),
+//             date:       formatDate(action.date),
+//         });
+//     } else {
+//         // even if people don't consider the upgrade a trade, it still moved to this wallet
+//         await logToWallet(redis, key, action, config, 'Upgraded ' + chainToken(action.in[0].coins[0].asset));
+//     }
+// };
 
 // for "addLiquidity" will return number of LiquidityUnits added, otherwise null
-export const logToWallet = async (redis, key, action, config, comment) => {
-    const date = formatDate(action.date, -1);
-    const coins = {};
+// export const logToWallet = async (redis, key, action, config, comment) => {
+//     const date = formatDate(action.date, -1);
+//     const coins = {};
+//
+//     for (const sent of action.in) {
+//         coins[token(sent.coins[0].asset, config)] = sent.coins[0].amount / 100000000;
+//
+//         if (sent.coins[0].asset !== 'THOR.RUNE') {
+//             await storeRecord(redis, key, config, {
+//                 type:      'Deposit',
+//                 buyAmount: coins[token(sent.coins[0].asset, config)],
+//                 buyCurr:   token(sent.coins[0].asset, config),
+//                 comment:   comment ?? null,
+//                 date:      date,
+//                 txID:      sent.txID,
+//             });
+//         }
+//     }
+//
+//     // if adding liquidity, note how much was swapped in
+//     if ('addLiquidity' in action.metadata) {
+//         pooled[action.pools[0]] || (pooled[action.pools[0]] = []);
+//         pooled[action.pools[0]].push({
+//             LP: Number(action.metadata.addLiquidity.liquidityUnits) / 100000000,
+//             ...coins,
+//         });
+//
+//         return Number(action.metadata.addLiquidity.liquidityUnits) / 100000000;
+//     }
+//
+//     return null;
+// };
 
-    for (const sent of action.in) {
-        coins[token(sent.coins[0].asset, config)] = sent.coins[0].amount / 100000000;
-
-        if (sent.coins[0].asset !== 'THOR.RUNE') {
-            await storeRecord(redis, key, config, {
-                type:      'Deposit',
-                buyAmount: coins[token(sent.coins[0].asset, config)],
-                buyCurr:   token(sent.coins[0].asset, config),
-                comment:   comment ?? null,
-                date:      date,
-                txID:      sent.txID,
-            });
-        }
-    }
-
-    // if adding liquidity, note how much was swapped in
-    if ('addLiquidity' in action.metadata) {
-        pooled[action.pools[0]] || (pooled[action.pools[0]] = []);
-        pooled[action.pools[0]].push({
-            LP: Number(action.metadata.addLiquidity.liquidityUnits) / 100000000,
-            ...coins,
-        });
-
-        return Number(action.metadata.addLiquidity.liquidityUnits) / 100000000;
-    }
-
-    return null;
-};
-
-export const storeRecord = async (redis, key, config, record) => {
-    if (printDetails) {
-        console.log('store:', record);
-    }
-    await redis.rPush(key + '_record', JSON.stringify(record));
-    if (config.firstRecord) {
-        config.firstRecord = false;
-        //console.log('set record-expire');
-        await redis.expire(key + '_record', process.env.TTL);
-    }
-};
+// export const storeRecord = async (redis, key, config, record) => {
+//     if (printDetails) {
+//         console.log('store:', record);
+//     }
+//     await redis.rPush(key + '_record', JSON.stringify(record));
+//     if (config.firstRecord) {
+//         config.firstRecord = false;
+//         //console.log('set record-expire');
+//         await redis.expire(key + '_record', process.env.TTL);
+//     }
+// };
 
 // get a key based on the given input
 export const sha256 = (input) => {
@@ -799,18 +798,18 @@ export const sha256 = (input) => {
 };
 
 // convert "BNB.BUSD-BD1" into "BUSD"
-export const token = (asset, config) => {
-    if (config.includeUpgrades) {
-        // in order to include the upgrades properly, we have to make non-native distinct
-        switch (asset) {
-            case 'ETH.RUNE-0X3155BA85D5F96B2D030A4966AF206230E46849CB':
-                return 'RUNE-ETH';
-            case 'BNB.RUNE-B1A':
-                return 'RUNE-B1A';
-        }
-    }
-    return asset.split('.')[1].split('-')[0];
-};
+// export const token = (asset, config) => {
+//     if (config.includeUpgrades) {
+//         // in order to include the upgrades properly, we have to make non-native distinct
+//         switch (asset) {
+//             case 'ETH.RUNE-0X3155BA85D5F96B2D030A4966AF206230E46849CB':
+//                 return 'RUNE-ETH';
+//             case 'BNB.RUNE-B1A':
+//                 return 'RUNE-B1A';
+//         }
+//     }
+//     return asset.split('.')[1].split('-')[0];
+// };
 
 // convert "BNB.BUSD-BD1" into "BNB.BUSD"
 export const chainToken = (asset) => {

@@ -15,7 +15,7 @@
  * +2 extra steps
  */
 
-import {actionFee, chainToken, formatDate, outMatch, storeRecord, token} from "./functions.mjs";
+import { chainToken, formatDate } from "./functions.mjs";
 
 /* 1 RUNE === 100000000 tor; RUNE has upto 8 digits after the decimal point */
 const BASE_OFFSET   = 100000000;
@@ -87,12 +87,12 @@ export function Calculation(redis, key, action, config) {
         if (this.config.standardLP) {
             for (const sent of this.action.in) {
                 await this.storeRecord({
-                    type: 'Withdrawal',
+                    type:       'Withdrawal',
                     sellAmount: assetAmount(sent.coins[0].amount),
-                    sellCurr: this.token(sent.coins[0].asset),
-                    comment: 'Sent to Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
-                    ...this.actionFee(this.token(sent.coins[0].asset)),
-                    date: formatDate(this.action.date),
+                    sellCurr:   this.token(sent.coins[0].asset),
+                    comment:    'Sent to Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
+                                ...this.actionFee(this.token(sent.coins[0].asset)),
+                    date:       formatDate(this.action.date),
                 });
             }
 
@@ -109,14 +109,20 @@ export function Calculation(redis, key, action, config) {
         }
     };
 
+    /* user swapped non-native (BNB|ETH).RUNE for native THOR.RUNE */
     this.logUpgrade = async () => {
         if (this.config.includeUpgrades) {
             await this.logToWallet();
 
+            // large trades can sometime be broken up into multiple "out"s, so we sum them up
             // no fees for upgrades (beyond external chain transaction fee)
+            let buyAmount = 0;
+            for (const sent of this.action.out) {
+                buyAmount += Number(assetAmount(sent.coins[0].amount));
+            }
             await this.storeRecord({
                 type:       'Trade',
-                buyAmount:  assetAmount(this.action.out[0].coins[0].amount),
+                buyAmount:  buyAmount,
                 buyCurr:    this.token(this.action.out[0].coins[0].asset),
                 sellAmount: assetAmount(this.action.in[0].coins[0].amount),
                 sellCurr:   this.token(this.action.in[0].coins[0].asset),
@@ -129,12 +135,14 @@ export function Calculation(redis, key, action, config) {
         }
     };
 
+    /* user withdrew one or two assets from a liquidity pool, must carefully calculate the difference
+     * between the basis and what was withdrawn to report any implicit trades, along with profit/loss */
     this.logWithdraw = async () => {
         // the nice name of the token asset in the pool alongside RUNE
         const asset = this.token(this.action.pools[0]);
 
         // calculated tokens, to determine cost-basis, currently just first-in-first-out, but should work on supporting more
-        const basis = this.calculateBasis();
+        const basis = await this.calculateBasis();
 
         // coins actually received (note we initialize to zero)
         const coins = {
@@ -143,7 +151,7 @@ export function Calculation(redis, key, action, config) {
         };
 
         for (const received of this.action.out) {
-            coins[this.token(received.coins[0].asset)] = assetAmount(received.coins[0].amount);
+            coins[this.token(received.coins[0].asset)] = Number(assetAmount(received.coins[0].amount));
         }
 
         // if desired, a "withdrawal" of the LP Units
@@ -164,8 +172,8 @@ export function Calculation(redis, key, action, config) {
                 type:      'Deposit',
                 buyAmount: basis.RUNE,
                 buyCurr:   'RUNE',
-                ...this.actionFee('RUNE'),
-                comment:    'Received from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
+                           ...this.actionFee('RUNE'),
+                comment:   'Received from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
                 date:      formatDate(this.action.date, -1),
             });
         }
@@ -174,15 +182,106 @@ export function Calculation(redis, key, action, config) {
                 type:      'Deposit',
                 buyAmount: basis[asset],
                 buyCurr:   asset,
-                ...this.actionFee('RUNE', (basis.RUNE > 0)),
-                comment:    'Received from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
+                           ...this.actionFee('RUNE', (basis.RUNE > 0)),
+                comment:   'Received from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
                 date:      formatDate(this.action.date, -1),
             });
         }
 
-
-
-        // TODO FROM HERE..
+        // if needed, one or more trade/profit/loss depending on how basis (input) compares to coins (output)
+        // remember: both basis and coins will have at least RUNE or asset (and either may have both)
+        const assetProfit = Number((coins[asset] - basis[asset]).toFixed(8));
+        const runeProfit  = Number((coins.RUNE - basis.RUNE).toFixed(8));
+        if (basis.RUNE > 0) {
+            if (coins.RUNE <= 0) {
+                if (basis[asset] <= 0) { // && implied(coins[asset] > 0)
+                    // RUNE to ASSET -------------------------------------------
+                    console.log('RUNE-to-ASSET');
+                    await this.logLPTrade(coins[asset], asset, basis.RUNE, 'RUNE');
+                } else { // basis[asset] > 0 && implied(coins[asset] > 0)
+                    // BOTH to ASSET -------------------------------------------
+                    console.log('BOTH-to-ASSET');
+                    // so we convert rune to asset, if basis[asset] < coins[asset], just take the difference, as the
+                    // output of the trade however, if basis[asset] >= coins[asset], we'll report all the losses
+                    if (basis[asset] < coins[asset]) {
+                        // note the final extra parameter, which adds back in the basis, for the withdrawal
+                        await this.logLPTrade(assetProfit, asset, basis.RUNE, 'RUNE', false, basis[asset]);
+                    } else {
+                        // unlikely case: started with both assets, withdraw as asset, but got less asset than was deposited, multiple losses
+                        await this.logLPLoss(basis.RUNE, 'RUNE');
+                        if (basis[asset] > coins[asset]) {
+                            await this.logLPLoss(assetProfit, asset, true);
+                        }
+                    }
+                }
+            } else { // coins.RUNE > 0
+                if (basis[asset] <= 0) {
+                    if (coins[asset] > 0) {
+                        // RUNE to BOTH ----------------------------------------
+                        console.log('RUNE-to-BOTH');
+                        // so we convert half the basis.RUNE into coins[asset], then income/loss the difference between
+                        // half the basis.RUNE and the coins.RUNE remember "half" doesn't always divide evenly,
+                        // so we'll have to do basis-halfRune for the other half
+                        const halfRune = Number((basis.RUNE / 2).toFixed(8));
+                        await this.logLPTrade(coins[asset], asset, Number((basis.RUNE - halfRune).toFixed(8)), 'RUNE');
+                        await this.logLPIncomeOrLoss(Number((coins.RUNE - halfRune).toFixed(8)), 'RUNE', true);
+                    } else { // coins[asset] <= 0
+                        // RUNE to RUNE ----------------------------------------
+                        console.log('RUNE-to-RUNE');
+                        // simple profit/loss
+                        await this.logLPIncomeOrLoss(runeProfit, 'RUNE');
+                    }
+                } else { // basis[asset] > 0
+                    if (coins[asset] <= 0) {
+                        // BOTH to RUNE ----------------------------------------
+                        console.log('BOTH-to-RUNE');
+                        // so we convert asset to rune, if basis.RUNE < coins.RUNE, just take the difference,
+                        // as the output of the trade however, if basis.RUNE >= coins.RUNE, we'll report all the losses
+                        if (basis.RUNE < coins.RUNE) {
+                            await this.logLPTrade(runeProfit, 'RUNE', basis[asset], asset);
+                        } else {
+                            // unlikely case: started with both assets, withdraw as RUNE, but got less RUNE than was
+                            // deposited, multiple losses
+                            await this.logLPLoss(basis[asset], asset);
+                            if (basis.RUNE > coins.RUNE) {
+                                await this.logLPLoss(runeProfit, 'RUNE', true);
+                            }
+                        }
+                    } else { // coins[asset] > 0
+                        // BOTH to BOTH ----------------------------------------
+                        console.log('BOTH-to-BOTH');
+                        // simple profit/loss for RUNE
+                        await this.logLPIncomeOrLoss(runeProfit, 'RUNE');
+                        // simple profit/loss and withdrawal for ASSET
+                        await this.logLPIncomeOrLoss(assetProfit, asset);
+                        await this.logLPWithdraw(coins[asset], asset);
+                    }
+                }
+            }
+        } else { // basis.RUNE <= 0
+            if (coins.RUNE > 0) { // && implied(basis[asset] > 0)
+                if (coins[asset] <= 0) {
+                    // ASSET to RUNE -------------------------------------------
+                    console.log('ASSET-to-RUNE');
+                    await this.logLPTrade(coins.RUNE, 'RUNE', basis[asset], asset);
+                } else { // coins[asset] > 0
+                    // ASSET to BOTH -------------------------------------------
+                    console.log('ASSET-to-RUNE');
+                    // so we convert half the basis[asset] into coins.RUNE, then income/loss the difference between
+                    // half the basis[asset] and the coins[asset] remember "half" doesn't always divide evenly,
+                    // so we'll have to do basis-halfAsset for the other half
+                    const halfAsset = Number((basis[asset] / 2).toFixed(8));
+                    await this.logLPTrade(coins.RUNE, 'RUNE', Number((basis[asset] - halfAsset).toFixed(8)), asset);
+                    await this.logLPIncomeOrLoss(Number((coins[asset] - halfAsset).toFixed(8)), asset, true);
+                }
+            } else { // coins.RUNE <= 0 && implied(basis[asset] > 0 && coins[asset] > 0)
+                // ASSET to ASSET ----------------------------------------------
+                console.log('ASSET-to-ASSET');
+                // simple profit/loss and withdrawal
+                await this.logLPIncomeOrLoss(assetProfit, asset);
+                await this.logLPWithdraw(coins[asset], asset);
+            }
+        }
     };
 
     /* ---------------------------------------------------------------------- */
@@ -194,7 +293,7 @@ export function Calculation(redis, key, action, config) {
         const coins = {};
 
         for (const receive of this.action.in) {
-            coins[this.token(receive.coins[0].asset)] = assetAmount(receive.coins[0].amount);
+            coins[this.token(receive.coins[0].asset)] = Number(assetAmount(receive.coins[0].amount));
 
             // before most operations from a non-RUNE asset, we have to "receive" it to the RUNE wallet
             // no fee, since it was already handled in the other wallet
@@ -212,7 +311,7 @@ export function Calculation(redis, key, action, config) {
 
         // when we are adding liquidity, note how much was swapped in
         if ('addLiquidity' in this.action.metadata) {
-            coins.LP = assetAmount(this.action.metadata.addLiquidity.liquidityUnits);
+            coins.LP = Number(assetAmount(this.action.metadata.addLiquidity.liquidityUnits));
             return await this.trackCostBasis(coins);
         }
     };
@@ -234,6 +333,7 @@ export function Calculation(redis, key, action, config) {
         return Number(coins.LP);
     };
 
+    /* save this object into redis, each "record" is the data for a single line in the resulting CSV file */
     this.storeRecord = async (record) => {
         await this.redis.rPush(this.key + '_record', JSON.stringify(record));
 
@@ -301,6 +401,7 @@ export function Calculation(redis, key, action, config) {
     /* --- internal support functions for withdrawal ------------------------ */
     /* ---------------------------------------------------------------------- */
 
+    /* review deposit history to determine assets provided for the given number of liquidity units */
     this.calculateBasis = async () => {
         // liquidity-units actually removed, remember, this is a negative number
         const units = Number(assetAmount(this.action.metadata.withdraw.liquidityUnits));
@@ -333,7 +434,7 @@ export function Calculation(redis, key, action, config) {
                     deposit.RUNE   = Number(((deposit.RUNE ?? 0)   * percent).toFixed(8));
 
                     // take the leftover and put it back into the pooled, and break out of the loop
-                    await this.redis[push](this.key + '_pooled_' + this.action.pools[0], deposit);
+                    await this.redis[push](this.key + '_pooled_' + this.action.pools[0], JSON.stringify(deposit));
                     break;
                 } else {
                     basis.LP     = Number((basis.LP     + deposit.LP           ).toFixed(8));
@@ -348,57 +449,77 @@ export function Calculation(redis, key, action, config) {
         return basis;
     };
 
+    /* log implicit trade from a LP withdrawal */
     this.logLPTrade = async (buyAmount, buyCurr, sellAmount, sellCurr, skipFee, extraWithdraw) => {
+        console.log({ type: 'Trade', buyAmount: buyAmount, buyCurr: buyCurr, sellAmount: sellAmount, sellCurr: sellCurr, extra: extraWithdraw });
         await this.storeRecord({
             type: 'Trade',
             buyAmount:  buyAmount,
             buyCurr:    buyCurr,
             sellAmount: sellAmount,
             sellCurr:   sellCurr,
-            ...this.actionFee(buyCurr, skipFee),
+                        ...this.actionFee(buyCurr, skipFee),
             comment:    'Trade from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
             date:       formatDate(this.action.date),
         });
 
         if (buyCurr !== 'RUNE') {
-            // notice, that we always skip the fee for the withdrawal after the trade, since we've already handled it in the trade
-            await this.logLPWithdraw(Number((buyAmount + (extraWithdraw ?? 0)).toFixed(8)), buyCurr, true);
+            await this.logLPWithdraw(Number((buyAmount + (extraWithdraw ?? 0)).toFixed(8)), buyCurr);
         }
     };
 
-    this.logLPWithdraw = async (sellAmount, sellCurr, skipFee) => {
+    /* log an external asset going to the other wallet */
+    this.logLPWithdraw = async (sellAmount, sellCurr) => {
+        console.log({ type: 'Withdrawal', sellAmount: sellAmount, sellCurr: sellCurr });
+        // no fee, since it was already handled by now
         await this.storeRecord({
             type:       'Withdrawal',
             sellAmount: sellAmount,
             sellCurr:   sellCurr,
-            ...this.actionFee(sellCurr, skipFee),
             date:       formatDate(this.action.date, 2),
             txID:       this.outMatch(sellCurr).txID,
         });
     };
 
+    /* log realized profit as the result of withdrawing from a liquidity pool */
     this.logLPIncome = async (buyAmount, buyCurr, skipFee) => {
+        console.log({ type: 'Staking', buyAmount: buyAmount, buyCurr: buyCurr });
         await this.storeRecord({
             type: 'Staking',
             buyAmount:  buyAmount,
             buyCurr:    buyCurr,
-            ...this.actionFee(buyCurr, skipFee),
+                        ...this.actionFee(buyCurr, skipFee),
             comment:    'Profit from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
             date:       formatDate(this.action.date, 1),
         });
     };
 
+    /* log realized loss as the result of withdrawing from a liquidity pool */
     this.logLPLoss = async (sellAmount, sellCurr, skipFee) => {
+        console.log({ type: 'Lost', sellAmount: Math.abs(sellAmount), sellCurr: sellCurr });
+        // we use the absolute value, so that we can easily log negative profit
         await this.storeRecord({
             type: 'Lost',
-            sellAmount: sellAmount,
+            sellAmount: Math.abs(sellAmount),
             sellCurr:   sellCurr,
-            ...this.actionFee(sellCurr, skipFee),
+                        ...this.actionFee(sellCurr, skipFee),
             comment:    'Loss from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
             date:       formatDate(this.action.date, 1),
         });
     };
 
+    /* log realized profit/loss as the result of withdrawing from a liquidity pool */
+    this.logLPIncomeOrLoss = async (amount, curr, skipFee) => {
+        // notice if exactly equal, no income/loss transaction will be logged
+        if (amount > 0) {
+            await this.logLPIncome(amount, curr, skipFee);
+        } else if (amount < 0) {
+            await this.logLPLoss(amount, curr, skipFee);
+        }
+    };
+
+    /* find the action.out that matches the given asset, or default to the first,
+     * used to determine transaction ids */
     this.outMatch = (asset) => {
         for (const sent of this.action.out) {
             if (this.token(sent.coins[0].asset) === asset) {

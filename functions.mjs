@@ -192,12 +192,13 @@ export const normalizeAddresses = (addresses) => {
 export const normalizeConfig = (options) => {
     const config = {
         // REMEMBER: add *ALL* defaults here
-        detailedLP:      false,
-        includeUpgrades: false,
+        standardLP:      true, // log sent-to/received-from pool transactions
+        detailedLP:      false, // log received-from/sent-to liquidity units
+        includeUpgrades: false, // report non-native rune as separate assets
+        basisMethod:     'FIFO', // how we pull basis out of our pooled list
+        // the following are used internally, to track setting new variables in redis
         firstRecord:     true,
         pooled:          {}, // we add pool names as we run across them
-        standardLP:      true, // log sent-to/received-from pool transactions
-        basisMethod:     'FIFO',
     };
 
     for (let [type, option] of Object.entries(options)) {
@@ -208,13 +209,20 @@ export const normalizeConfig = (options) => {
 
         switch (type) {
             case 'opt-separate':
+                // remember, Boolean() returns true for anything except for "", null, or undefined
                 config.includeUpgrades = Boolean(option);
                 break;
-            case 'opt-minimal':
-                config.standardLP = Boolean(option);
+            case 'opt-verbose':
+                if (option === 'min') {
+                    config.standardLP = false;
+                } else if (option === 'max') {
+                    config.detailedLP = true;
+                }
                 break;
-            case 'opt-lifo':
-                config.basisMethod = option === 'LIFO' ? 'LIFO' : 'FIFO';
+            case 'opt-method':
+                if (option === 'LIFO') {
+                    config.basisMethod = option;
+                }
                 break;
             // REMEMBER: add *ALL* defaults to config init
         }

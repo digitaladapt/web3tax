@@ -46,13 +46,13 @@
                                 <label class="label">DOGE <input type="text" name="doge" class="input" placeholder="D..." autocomplete="on"></label>
                             </div></div><div class="field"><div class="control">
                                 <label class="label" for="costBasisMethod">Cost Basis Method <span class="tag is-link has-text-weight-normal">this should match what your tax software is set to</span></label>
-                                <div class="select"><select name="opt-lifo" id="costBasisMethod">
+                                <div class="select"><select name="opt-method" id="costBasisMethod">
                                     <option value="FIFO">First-In-First-Out (FIFO)</option>
                                     <option value="LIFO">Last-In-First-Out (LIFO)</option>
                                 </select></div>
                             </div></div><div class="field">
                                 <div class="control">
-                                    <label class="checkbox"><input type="checkbox" name="opt-separate"> Non-native RUNE as separate asset <span class="tag is-danger">causes import bugs on Koinly / CoinTracker</span></label>
+                                    <label class="checkbox"><input type="checkbox" name="opt-separate" value="on"> Non-native RUNE as separate asset <span class="tag is-danger">causes import bugs on Koinly / CoinTracker</span></label>
                                 </div>
                                 <p class="help">If checked, upgrading your RUNE will be reported as a trade.</p>
                             </div><div class="field is-grouped is-grouped-multiline">

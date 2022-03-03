@@ -154,38 +154,41 @@ export function Calculation(redis, key, action, config) {
             coins[this.token(received.coins[0].asset)] = Number(assetAmount(received.coins[0].amount));
         }
 
-        // if desired, a "withdrawal" of the LP Units
-        if (this.config.detailedLP) {
-            await this.storeRecord({
-                type:       'Expense (non taxable)',
-                sellAmount: basis.LP,
-                sellCurr:   this.token(this.action.pools[0]) + '-RUNE',
-                comment:    'Received from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
-                date:       formatDate(this.action.date, -2),
-            });
-        }
+        // first a "deposit" transaction for each asset received from the pool
+        if (this.config.standardLP) {
+            // if desired, a "withdrawal" of the LP Units
+            if (this.config.detailedLP) {
+                await this.storeRecord({
+                    type:       'Expense (non taxable)',
+                    sellAmount: basis.LP,
+                    sellCurr:   this.token(this.action.pools[0]) + '-RUNE',
+                    comment:    'Received from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
+                    date:       formatDate(this.action.date, -2),
+                });
+            }
 
-        // a "deposit" for each basis we get out (1 or 2)
-        // the rune withdraw request transaction fee will be included in the first "deposit"
-        if (basis.RUNE > 0) {
-            await this.storeRecord({
-                type:      'Deposit',
-                buyAmount: basis.RUNE,
-                buyCurr:   'RUNE',
-                           ...this.actionFee('RUNE'),
-                comment:   'Received from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
-                date:      formatDate(this.action.date, -1),
-            });
-        }
-        if (basis[asset] > 0) {
-            await this.storeRecord({
-                type:      'Deposit',
-                buyAmount: basis[asset],
-                buyCurr:   asset,
-                           ...this.actionFee('RUNE', (basis.RUNE > 0)),
-                comment:   'Received from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
-                date:      formatDate(this.action.date, -1),
-            });
+            // a "deposit" for each basis we get out (1 or 2)
+            // the rune withdraw request transaction fee will be included in the first "deposit"
+            if (basis.RUNE > 0) {
+                await this.storeRecord({
+                    type:      'Deposit',
+                    buyAmount: basis.RUNE,
+                    buyCurr:   'RUNE',
+                               ...this.actionFee('RUNE'),
+                    comment:   'Received from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
+                    date:      formatDate(this.action.date, -1),
+                });
+            }
+            if (basis[asset] > 0) {
+                await this.storeRecord({
+                    type:      'Deposit',
+                    buyAmount: basis[asset],
+                    buyCurr:   asset,
+                               ...this.actionFee('RUNE', (basis.RUNE > 0)),
+                    comment:   'Received from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
+                    date:      formatDate(this.action.date, -1),
+                });
+            }
         }
 
         // if needed, one or more trade/profit/loss depending on how basis (input) compares to coins (output)

@@ -214,7 +214,7 @@ export const normalizeConfig = (options) => {
                 config.standardLP = Boolean(option);
                 break;
             case 'opt-lifo':
-                config.basisMethod = 'LIFO';
+                config.basisMethod = option === 'LIFO' ? 'LIFO' : 'FIFO';
                 break;
             // REMEMBER: add *ALL* defaults to config init
         }

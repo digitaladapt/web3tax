@@ -1,3 +1,9 @@
+COMPLETED:
+support for Last-In-First-Out has been added internally as part of the code refactor.
+
+---
+
+SUPPORT ADDED:
 it's possible that a single swap can involve multiple output transactions (of the same asset).
 
 Here is an example:
@@ -9,6 +15,7 @@ https://viewblock.io/thorchain/tx/7A60BEA734F68F8DFDF733B76D4D58DBDEFFC5CA4ED4BB
 
 ---
 
+COMPLETED:
 next requested feature is supporting @CryptoTaxHQ, which was requested by @menininha9393 on Twitter.
 
 ---

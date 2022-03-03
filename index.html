@@ -30,6 +30,7 @@
                             Generate import-ready CSV file of your blockchain transactions, just by entering your wallet addresses.
                         </p>
                         <form class="taxForm">
+                            <input type="hidden" name="opt-verbose" value="standard">
                             <div class="field"><div class="control">
                                 <label class="label">THOR <input type="text" name="thor" class="input thorAddress" placeholder="thor1..." autocomplete="on"></label>
                             </div></div><div class="field"><div class="control">
@@ -44,9 +45,15 @@
                                 <label class="label">ETH  <input type="text" name="eth"  class="input" placeholder="0x..." autocomplete="on"></label>
                             </div></div><div class="field"><div class="control">
                                 <label class="label">DOGE <input type="text" name="doge" class="input" placeholder="D..." autocomplete="on"></label>
+                            </div></div><div class="field"><div class="control">
+                                <label class="label" for="costBasisMethod">Cost Basis Method <span class="tag is-link has-text-weight-normal">this should match what your tax software is set to</span></label>
+                                <div class="select"><select name="opt-method" id="costBasisMethod">
+                                    <option value="FIFO">First-In-First-Out (FIFO)</option>
+                                    <option value="LIFO">Last-In-First-Out (LIFO)</option>
+                                </select></div>
                             </div></div><div class="field">
                                 <div class="control">
-                                    <label class="checkbox"><input type="checkbox" name="opt-separate"> Non-native RUNE as separate asset <span class="tag is-danger">causes import bugs on Koinly / CoinTracker</span></label>
+                                    <label class="checkbox"><input type="checkbox" name="opt-separate" value="on"> Non-native RUNE as separate asset <span class="tag is-danger">causes import bugs on Koinly / CoinTracker</span></label>
                                 </div>
                                 <p class="help">If checked, upgrading your RUNE will be reported as a trade.</p>
                             </div><div class="field is-grouped is-grouped-multiline">
@@ -98,8 +105,9 @@
                             <a href="https://lum.network/" target="_blank">Lum Network</a>.
                         </p>
                         <ul>
-                            <li><a href="https://chihuahua.omniflix.co/stake" target="_blank">Stake on Chihuahua</a>
-                                (<a href="https://www.mintscan.io/chihuahua/validators/chihuahuavaloper1krkmg6f0sjwalkx3nq39yt0upxgys7alpxrka7" target="_blank">MintScan</a>)</li>
+                            <li><del><a href="https://chihuahua.omniflix.co/stake" target="_blank">Stake on Chihuahua</a>
+                                (<a href="https://www.mintscan.io/chihuahua/validators/chihuahuavaloper1krkmg6f0sjwalkx3nq39yt0upxgys7alpxrka7" target="_blank">MintScan</a>)</del>
+                                <span class="tag is-warning">Inactive</span></li>
                             <li><a href="https://explorer.lum.network/validators/lumvaloper1krkmg6f0sjwalkx3nq39yt0upxgys7alme6lps" target="_blank">Stake on Lum Network</a>
                                 (<a href="https://www.mintscan.io/lum/validators/lumvaloper1krkmg6f0sjwalkx3nq39yt0upxgys7alme6lps" target="_blank">MintScan</a>)</li>
                         </ul>
@@ -193,7 +201,12 @@
             let key = null;
 
             for (const [key, value] of (new URLSearchParams(window.location.search)).entries()) {
-                $('.taxForm').find('[name=' + key + ']').val(value);
+                if (key === 'opt-separate') {
+                    // checkboxes need to be handled specially
+                    $('.taxForm').find('[name=' + key + ']').prop('checked', true);
+                } else {
+                    $('.taxForm').find('[name=' + key + ']').val(value);
+                }
             }
 
             $('.showMore').on('click', () => {

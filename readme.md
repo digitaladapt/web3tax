@@ -13,6 +13,7 @@ ThorChain Midgard API parser written in NodeJS, with long-term plans of becoming
 * 16th, Feb, 2022: Open sourced the project.
 * 17th, Feb, 2022: "Check LP Status" button added.
 * 18th, Feb, 2022: "Check LP Status" now supports partial withdrawals.
+* 1st, Mar, 2022: Added support for LIFO cost basis method.
 ### Roadmap ###
 ThorChain related improvements (in no particular order)
 * fix rare edge-case bug: very large swaps with multiple output transactions, second output currently gets ignored.

@@ -200,7 +200,12 @@
             let key = null;
 
             for (const [key, value] of (new URLSearchParams(window.location.search)).entries()) {
-                $('.taxForm').find('[name=' + key + ']').val(value);
+                if (key === 'opt-separate') {
+                    // checkboxes need to be handled specially
+                    $('.taxForm').find('[name=' + key + ']').prop('checked', true);
+                } else {
+                    $('.taxForm').find('[name=' + key + ']').val(value);
+                }
             }
 
             $('.showMore').on('click', () => {

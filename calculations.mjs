@@ -102,7 +102,7 @@ export function Calculation(redis, key, action, config) {
                     type:      'Income (non taxable)',
                     buyAmount: units,
                     buyCurr:   this.token(this.action.pools[0]) + '-RUNE',
-                    comment:   'Sent to Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
+                    comment:   'Units from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
                     date:      formatDate(this.action.date, 1),
                 });
             }
@@ -162,7 +162,7 @@ export function Calculation(redis, key, action, config) {
                     type:       'Expense (non taxable)',
                     sellAmount: basis.LP,
                     sellCurr:   this.token(this.action.pools[0]) + '-RUNE',
-                    comment:    'Received from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
+                    comment:    'Units to Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
                     date:       formatDate(this.action.date, -2),
                 });
             }

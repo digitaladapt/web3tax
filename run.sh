@@ -18,6 +18,8 @@ REDIS_ENDPOINT=localhost:6379 \
 REDIS_PREFIX='live_' \
 MIDGARD_LIMIT=50 \
 MIDGARD_URL='https://midgard.ninerealms.com/v2/actions?limit=50&address={WALLETS}&offset={OFFSET}' \
+THORNODE_LIMIT=50 \
+THORNODE_URL='https://thornode.ninerealms.com/txs?limit=50&message.action=send&transfer.{DIRECTION}={WALLET}&page={PAGE}' \
 PORT=3000 \
 TTL=7200 \
 /usr/bin/env node server.mjs 2>&1 | tee -a output.log; \

@@ -88,6 +88,47 @@ export const midgard = async (wallets, pagination, addAction, setCount) => {
     });
 };
 
+// gets sent to/from transactions
+export const thornode = async (wallet, pagination, direction, addAction, setCount) => {
+    const url = process.env.THORNODE_URL.replace('{DIRECTION}', direction).replace('{WALLET}', wallet).replace('{PAGE}', String(pagination + 1));
+    const inOut = direction === 'recipient' ? 'in' : 'out';
+    //console.log('url:', url);
+    await fetch(url).then((response) => {
+        //console.log('response: fetch successful');
+        return response.json();
+    }).then(async (data) => {
+        //console.log(data);
+        await setCount(Number(data.total_count));
+        if (data.txs) {
+            for (const tx of data.txs) {
+                const action = {
+                    type: 'send',
+                    metadata: {
+                        send: {
+                            networkFees: [{
+                                asset: 'THOR.RUNE',
+                                amount: tx.tx.value.fee.gas,
+                            }],
+                        },
+                    },
+                    date: String((new Date(tx.timestamp)).getTime()) + '000000',
+                };
+                action[inOut] = [{
+                    coins: [{
+                        asset: 'THOR.' + tx.tx.value.msg[0].value.amount[0].denom.toUpperCase(),
+                        amount: tx.tx.value.msg[0].value.amount[0].amount,
+                    }],
+                    txID: tx.txhash,
+                }];
+                addAction(action);
+            }
+        }
+    }).catch((error) => {
+        throw error;
+    });
+};
+
+
 // returns valid addresses in normalized format
 // takes object, returns an array
 export const normalizeAddresses = (addresses) => {
@@ -234,6 +275,27 @@ export const normalizeConfig = (options) => {
 
 // download the results, and calculate the report
 export const runProcess = async (redis, key, wallets, config) => {
+    let phase = 1;
+
+    const addAction = async (row) => {
+        //console.log('adding-row');
+        await redis.zAdd(key, {score: row.date.slice(0, -6), value: JSON.stringify(row)});
+        if (firstRow) {
+            firstRow = false;
+            //console.log('set data-expire');
+            await redis.expire(key, process.env.TTL);
+        }
+    };
+
+    const setCount = async (count) => {
+        theCount = count;
+        //console.log('setting-count');
+        await redis.set(key + '_count', count);
+        await redis.set(key + '_status', 'Phase ' + phase + ' of 3, Downloading ' + Math.min((thePage + 1) * process.env.MIDGARD_LIMIT, count) + ' of ' + count);
+        await redis.expire(key + '_count', process.env.TTL);
+        await redis.expire(key + '_status', process.env.TTL);
+    };
+
     //console.log('starting to run the process');
     let firstRow = true;
     let theCount = -1;
@@ -242,26 +304,29 @@ export const runProcess = async (redis, key, wallets, config) => {
     await redis.set(key + '_status', 'Starting to Download Transactions');
     await redis.expire(key + '_status', process.env.TTL);
     do {
-        await midgard(wallets, thePage, async (row) => {
-            //console.log('adding-row');
-            await redis.zAdd(key, {score: row.date.slice(0, -6), value: JSON.stringify(row)});
-            if (firstRow) {
-                firstRow = false;
-                //console.log('set data-expire');
-                await redis.expire(key, process.env.TTL);
-            }
-        }, async (count) => {
-            theCount = count;
-            //console.log('setting-count');
-            await redis.set(key + '_count', count);
-            await redis.set(key + '_status', 'Downloading ' + Math.min((thePage + 1) * process.env.MIDGARD_LIMIT, count) + ' of ' + count);
-            await redis.expire(key + '_count', process.env.TTL);
-            await redis.expire(key + '_status', process.env.TTL);
-        });
+        await midgard(wallets, thePage, addAction, setCount);
         thePage++;
     } while (thePage * process.env.MIDGARD_LIMIT < theCount);
 
-    await redis.set(key + '_status', 'Now Processing Transactions');
+    // phase 2, download ThorChain to ThorChain "Send" transactions, from a separate API
+    phase = 2;
+    for (const wallet of wallets) {
+        if ( ! wallet.startsWith('thor1')) {
+            // only concerned with ThorChain addresses
+            continue;
+        }
+        // we have to search for sent/receive transactions separately
+        for (const direction of ['sender', 'recipient']) {
+            theCount = -1;
+            thePage  = 0;
+            do {
+                await thornode(wallet, thePage, direction, addAction, setCount);
+                thePage++;
+            } while (thePage * process.env.THORNODE_LIMIT < theCount);
+        }
+    }
+
+    await redis.set(key + '_status', 'Phase 3 of 3, Now Processing Transactions');
     await redis.expire(key + '_status', process.env.TTL);
     let rowNumber = 0;
 
@@ -273,7 +338,7 @@ export const runProcess = async (redis, key, wallets, config) => {
 
     for (const row of await redis.zRange(key, 0, 9999999999999)) {
         rowNumber++;
-        await redis.set(key + '_status', 'Processing ' + rowNumber + ' of ' + theCount);
+        await redis.set(key + '_status', 'Phase 3 of 3, Processing ' + rowNumber + ' of ' + theCount);
         await redis.expire(key + '_status', process.env.TTL);
 
         const action = JSON.parse(row);
@@ -326,6 +391,9 @@ export const runProcess = async (redis, key, wallets, config) => {
         const calc = new Calculation(redis, key, action, config);
 
         switch (action.type) {
+            case 'send':
+                await calc.logSend();
+                break;
             case 'swap':
                 //await logTrade(redis, key, action, config);
                 await calc.logTrade();

@@ -43,6 +43,28 @@ export function Calculation(redis, key, action, config) {
     }; // */
     this.config = config;
 
+    /* user sent/received rune , either has one "in" or one "out",  */
+    this.logSend = async () => {
+        if (this.action.in) {
+            await this.storeRecord({
+                type:       'Deposit',
+                buyAmount:  assetAmount(this.action.in[0].coins[0].amount),
+                buyCurr:    this.token(this.action.in[0].coins[0].asset),
+                date:       formatDate(this.action.date),
+                txID:       this.action.in[0].txID,
+            });
+        } else {
+            await this.storeRecord({
+                type:       'Withdrawal',
+                sellAmount: assetAmount(this.action.out[0].coins[0].amount),
+                sellCurr:   this.token(this.action.out[0].coins[0].asset),
+                            ...this.actionFee(),
+                date:       formatDate(this.action.date),
+                txID:       this.action.out[0].txID,
+            });
+        }
+    };
+
     /* user swapped one asset for another, exactly one "in", multiple "out"s are possible
      * (but uncommon), in and out can be the same asset (failed swap) */
     this.logTrade = async () => {
@@ -455,7 +477,7 @@ export function Calculation(redis, key, action, config) {
                     basis.RUNE   = Number((basis.RUNE   + (deposit.RUNE ?? 0)  ).toFixed(8));
                 }
             } catch (error) {
-                throw 'missing cost-basis for pool: ' + chainToken(action.pools[0]);
+                throw 'missing cost-basis for pool: ' + chainToken(this.action.pools[0]);
             }
         } while (Number((basis.LP + units).toFixed(8)) < 0);
         // console.log(basisLog, units, "\n\n");
@@ -463,7 +485,7 @@ export function Calculation(redis, key, action, config) {
         return basis;
     };
 
-    /* log implicit trade from a LP withdrawal */
+    /* log implicit trade from an LP withdrawal */
     this.logLPTrade = async (buyAmount, buyCurr, sellAmount, sellCurr, skipFee, extraWithdraw) => {
         // console.log({ type: 'Trade', buyAmount: buyAmount, buyCurr: buyCurr, sellAmount: sellAmount, sellCurr: sellCurr, extra: extraWithdraw });
         await this.storeRecord({

@@ -1,3 +1,16 @@
+sample data source for huahua...
+
+https://api.chihuahua.wtf/cosmos/tx/v1beta1/txs?order_by=ORDER_BY_DESC&pagination.limit=50&pagination.offset=0&pagination.count_total=True&events=message.sender=%27chihuahua1sv0dpae7rwmvguq7eftzlmps2ff59tkaxyvc9x%27
+https://lcd-chihuahua.cosmostation.io/cosmos/tx/v1beta1/txs?order_by=ORDER_BY_DESC&pagination.limit=2&pagination.offset=5&pagination.count_total=True&events=message.sender=%27chihuahua1sv0dpae7rwmvguq7eftzlmps2ff59tkaxyvc9x%27
+https://api-chihuahua.cosmostation.io/v1/account/new_txs/chihuahua1sv0dpae7rwmvguq7eftzlmps2ff59tkaxyvc9x?limit=50&from=0
+while a bit different, the "data" section is identical, which has everything we need.
+maybe have a map to  get into the meat of the content per url, so we can visit either/both.
+
+pagination on the rest api (first two urls) picks the correct "page" based on the given offset..
+IE if 10 per page, offsets 0-9 will all give the same results of the first page, offsets 10-19 will give page 2..
+
+---
+
 COMPLETED:
 support for Last-In-First-Out has been added internally as part of the code refactor.
 

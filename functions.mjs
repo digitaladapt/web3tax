@@ -21,11 +21,15 @@ export const formatDate = (date, offset) => {
     // plus an offset in seconds
     date = new Date((Number(date) / 1000000) + (offset * 1000));
 
+    return dateToString(date);
+}
+
+export const dateToString = (date) => {
     return date.getFullYear() + "-" + (date.getMonth() < 9 ? "0" : "") + (date.getMonth() + 1) + "-" +
         (date.getDate() < 10 ? "0" : "") + date.getDate() + " " + (date.getHours() < 10 ? "0" : "") + date.getHours() +
         ":" + (date.getMinutes() < 10 ? "0" : "") + date.getMinutes() + ":" + (date.getSeconds() < 10 ? "0" : "") +
         date.getSeconds();
-}
+};
 
 // output for csv files
 export const formatText = (content) => {
@@ -161,6 +165,7 @@ export const cosmos = async (network, wallet, pagination, limit, direction, addC
         // } else {
             await setCount(data.pagination?.total);
             for (const tx of data.tx_responses) {
+                tx.chain = network;
                 await addCosmosTx(tx);
             }
         // }

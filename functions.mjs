@@ -10,6 +10,8 @@ const THOR_TAG = 'thor'; // just thor addresses
 const RUNE_TAG = 'rune'; // anything thor related (like doge)
 const COSMOS_TAG = 'cosmos';
 
+const monkiers = {};
+
 // let printDetails = false; // for debugging
 
 // format given date as "YYYY-MM-DD HH:MM:SS"
@@ -143,7 +145,7 @@ export const cosmos = async (network, wallet, pagination, limit, direction, addC
     // the network variable must be one of the recognized options specified in the environment with "_URL" and "_LIMIT"
     // suffixed versions defined, expectation is to use the address prefix for the given blockchain as the network
     if ( ! baseUrl || ! limit) {
-        throw 'Missing configuration for given cosmos network: "' + network + '".';
+        throw 'Missing required configuration for given cosmos network: "' + network + '".';
     }
     const url = baseUrl
         .replace('{DIRECTION}', direction)
@@ -172,6 +174,33 @@ export const cosmos = async (network, wallet, pagination, limit, direction, addC
     }).catch((error) => {
         throw error;
     });
+};
+
+export const loadNodes = async (network) => {
+    const url = process.env[network + '_NODES'];
+    if ( ! url) {
+        // useful, but not required info, so just continue on
+        console.log('Missing nodes configuration for cosmos network: "' + network + '".');
+        return {};
+    }
+
+    monkiers[network] = {};
+    await fetch(url).then((response) => {
+        //console.log('response: fetch successful');
+        return response.json();
+    }).then(async (data) => {
+        for (const validator of data.validators) {
+            // build lookup table with simplified names
+            monkiers[network][validator.operator_address] = validator.description.moniker.replace(/[^0-9A-Za-z ._]+/g, '-');
+        }
+        console.log(network + ' nodes loaded.');
+    }).catch(() => {
+        console.log('Warning, unsuccessful loading nodes for cosmos network: "' + network + '".');
+    });
+};
+
+export const getNode = (network, node) => {
+    return monkiers[network][node] ?? node.replace(/^([a-z]+1[a-z0-9]{5})[a-z0-9]+([a-z0-9]{5})$/, "$1...$2");
 };
 
 // returns valid addresses in normalized format
@@ -285,6 +314,14 @@ export const normalizeAddresses = (addresses) => {
                     continue loop;
                 }
                 break;
+            case type.startsWith('cerberus'):
+                // cerberus /^cerberus[a-z0-9]{38,90}$/
+                address = address.toLowerCase();
+                if (/^cerberus[a-z0-9]{38,90}$/.test(address)) {
+                    wallets.add(address, COSMOS_TAG);
+                    continue loop;
+                }
+                break;
             case type.startsWith('opt-'):
                 // disregard options
                 continue loop;
@@ -345,7 +382,8 @@ export const normalizeConfig = (options) => {
 
 // download the results, and calculate the report
 export const runProcess = async (redis, key, wallets, config) => {
-    let phase = 1;
+    const total = (wallets[RUNE_TAG]?.length ?? 0) + (2 * (wallets[THOR_TAG]?.length ?? 0)) + (2 * (wallets[COSMOS_TAG]?.length ?? 0));
+    let phase = 0;
     let firstAction = true;
     let theCount = -1;
     let thePage  = 0;
@@ -376,7 +414,7 @@ export const runProcess = async (redis, key, wallets, config) => {
         theCount = count;
         //console.log('setting-count');
         await redis.set(key + '_count', count);
-        await redis.set(key + '_status', 'Phase ' + phase + ' of 4, Downloading ' + Math.min((thePage + 1) * process.env.MIDGARD_LIMIT, count) + ' of ' + count);
+        await redis.set(key + '_status', 'Phase ' + phase + ' of ' + total + ', Downloading ' + Math.min((thePage + 1) * process.env.MIDGARD_LIMIT, count) + ' of ' + count);
         await redis.expire(key + '_count', process.env.TTL);
         await redis.expire(key + '_status', process.env.TTL);
     };
@@ -415,6 +453,7 @@ export const runProcess = async (redis, key, wallets, config) => {
 
     // phase 1, download ThorChain transactions via Midgard
     if (wallets[RUNE_TAG]) {
+        phase++;
         do {
             await midgard(wallets[RUNE_TAG], thePage, addAction, setCount);
             thePage++;
@@ -423,10 +462,10 @@ export const runProcess = async (redis, key, wallets, config) => {
 
     // phase 2, download ThorChain to ThorChain "Send" transactions, from a separate API
     if (wallets[THOR_TAG]) {
-        phase = 2;
         for (const wallet of wallets[THOR_TAG]) {
             // we have to search for sent/receive transactions separately
             for (const direction of ['sender', 'recipient']) {
+                phase++;
                 theCount = -1;
                 thePage = 0;
                 do {
@@ -439,11 +478,13 @@ export const runProcess = async (redis, key, wallets, config) => {
 
     // phase 3, download transactions from each cosmos chain
     if (wallets[COSMOS_TAG]) {
-        phase = 3;
         for (const wallet of wallets[COSMOS_TAG]) {
             const network = wallet.split('1')[0]; // "chihuahua1sv0..." into just "chihuahua"
             const theLimit   = process.env[network + '_LIMIT'];
-            for (const direction of ['message.sender' /* this includes messages handled by a "grantee" (re-staking) */]) { // TODO add other "directions" as needed
+            for (const direction of ['message.sender', 'transfer.recipient']) {
+                phase++;
+                // TODO add other "directions" as needed
+                // I think 'message.sender' already includes messages handled by a "grantee" (re-staking)
                 theCount = -1;
                 thePage = 0;
                 // theHeight = 0;
@@ -456,7 +497,7 @@ export const runProcess = async (redis, key, wallets, config) => {
         }
     }
 
-    await redis.set(key + '_status', 'Phase 4 of 4, Now Processing Transactions');
+    await redis.set(key + '_status', 'Phase ' + total + ' of ' + total + ', Now Processing Transactions');
     await redis.expire(key + '_status', process.env.TTL);
     let rowNumber = 0;
 
@@ -468,13 +509,13 @@ export const runProcess = async (redis, key, wallets, config) => {
 
     for (const row of await redis.zRange(key + '_action', 0, 9999999999999)) {
         rowNumber++;
-        await redis.set(key + '_status', 'Phase 4 of 4, Processing ' + rowNumber + ' of ' + theCount);
+        await redis.set(key + '_status', 'Phase ' + total + ' of ' + total + ', Processing ' + rowNumber + ' of ' + theCount);
         await redis.expire(key + '_status', process.env.TTL);
 
         const action = JSON.parse(row);
 
         if (action.isCosmosTx) {
-            const cosmos = new Cosmos(redis, key, action, config)
+            const cosmos = new Cosmos(redis, key, action, config, wallets[COSMOS_TAG])
             await cosmos.logTx();
             continue;
         }

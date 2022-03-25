@@ -3,6 +3,7 @@
 import fs from 'fs';
 import http from 'http';
 import { submitAddresses, getStatus, fetchReport, purgeReport } from './handler.mjs';
+import { loadNodes } from "./functions.mjs";
 
 const hostname = 'localhost';
 const port = Number(process.env.PORT);
@@ -47,7 +48,7 @@ const server = http.createServer((req, res) => {
             break;
         case '/report':
             res.setHeader('Content-Type', 'text/csv');
-            res.setHeader("Content-Disposition", "attachment;filename=thorchain-report.csv");
+            res.setHeader("Content-Disposition", "attachment;filename=web3tax-info.csv");
 			fetchReport({
                 queryStringParameters: query,
             }).then((output) => {
@@ -76,3 +77,6 @@ fs.readFile('./index.html', (error, buffer) => {
     indexPage = buffer.toString();
     console.log('successfully loaded index.html');
 });
+
+await loadNodes('chihuahua');
+await loadNodes('cerberus');

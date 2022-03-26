@@ -95,8 +95,6 @@
                                 </div>
                             </form>
                         </div>
-                        <div class="lpResults is-hidden notification is-warning is-light" style="margin-top: 1em;">
-                        </div>
                     </div>
                 </div>
                 <div class="column">
@@ -165,6 +163,10 @@
                         <p>If you have any thoughts, questions, or would like to report a bug, you can either get hold of <a href="https://twitter.com/digitaladapt" target="_blank">me on Twitter</a>,
                             or you can also use <a href="https://docs.google.com/forms/d/e/1FAIpQLScIeyYEYAHw1fNXakh34ZBpfRv4mZHL0Hu2aCMNMj6PRwTDHQ/viewform" target="_blank">this Google Form</a>.</p> 
                     </div>
+                </div>
+            </div>
+            <div class="columns is-desktop">
+                <div class="column lpResults is-hidden notification is-warning is-light" style="margin-top: 1em;">
                 </div>
             </div>
             <div class="columns is-desktop">
@@ -312,6 +314,7 @@
                         clearTimeout(timer);
                         $('.lpStatus').removeClass('is-loading');
                         $('.lpResults').text('').removeClass('is-hidden');
+                        member.pools.sort((a,b) => (a.pool > b.pool) ? 1 : -1);
                         for (const basis of member.pools) {
                             for (const current of pools) {
                                 if (basis.pool !== current.asset) {
@@ -335,17 +338,21 @@
                                     "<div class='columns is-mobile'><div class='column py-0'>Pool</div>" +
                                         "<div class='column py-0 is-two-thirds has-text-centered'>" + basis.pool.split('-')[0] + "</div></div>" +
                                     "<div class='columns is-mobile has-background-light'><div class='column py-0'>Depo<wbr>sited</div>" +
-                                        "<div class='column py-0'>" + runeBasis.toFixed(4) + " RUNE</div>" +
-                                        "<div class='column py-0'>" + assetBasis.toFixed(4) + " " + assetName + "</div></div>" +
+                                        "<div class='column py-0'>" + runeBasis.toFixed(4) + " RUNE</div><div class='column py-0'></div>" +
+                                        "<div class='column py-0'>" + assetBasis.toFixed(4) + " " + assetName + "</div><div class='column py-0'></div></div>" +
                                     "<div class='columns is-mobile'><div class='column py-0'>With<wbr>drawn</div>" +
-                                        "<div class='column py-0'>" + runeOut.toFixed(4) + " RUNE</div>" +
-                                        "<div class='column py-0'>" + assetOut.toFixed(4) + " " + assetName + "</div></div>" +
+                                        "<div class='column py-0'>" + runeOut.toFixed(4) + " RUNE</div><div class='column py-0'></div>" +
+                                        "<div class='column py-0'>" + assetOut.toFixed(4) + " " + assetName + "</div><div class='column py-0'></div></div>" +
                                     "<div class='columns is-mobile has-background-light'>" +
                                         "<div class='column py-0'>Rema<wbr>ining</div><div class='column py-0'>" + runeCurr.toFixed(4) + " RUNE</div>" +
-                                        "<div class='column py-0'>" + assetCurr.toFixed(4) + " " + assetName + "</div></div>" +
+                                        "<div class='column py-0'>($" + (runeCurr * runeUSD).toFixed(2) + ")</div>" +
+                                        "<div class='column py-0'>" + assetCurr.toFixed(4) + " " + assetName + "</div>" +
+                                        "<div class='column py-0'>($" + (assetCurr * assetUSD).toFixed(2) + "}</div></div>" +
                                     "<div class='columns is-mobile'><div class='column py-0'>Profit<wbr>/Loss</div>" +
-                                        "<div class='column py-0 " + runeStatus + "'>" + runeProfit.toFixed(4) + " RUNE ($" + (runeProfit * runeUSD).toFixed(2) + ")</div>" +
-                                        "<div class='column py-0 " + assetStatus + "'>" + assetProfit.toFixed(4) + " " + assetName + " ($" + (assetProfit * assetUSD).toFixed(2) + ")</div></div>" +
+                                        "<div class='column py-0 " + runeStatus + "'>" + runeProfit.toFixed(4) + " RUNE</div>" +
+                                        "<div class='column py-0 " + runeStatus + "'>($" + (runeProfit * runeUSD).toFixed(2) + ")</div>" +
+                                        "<div class='column py-0 " + assetStatus + "'>" + assetProfit.toFixed(4) + " " + assetName + "</div>" +
+                                        "<div class='column py-0 " + assetStatus + "'>($" + (assetProfit * assetUSD).toFixed(2) + ")</div></div>" +
                                     "</div>"
                                 );
                             }

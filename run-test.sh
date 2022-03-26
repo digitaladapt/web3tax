@@ -27,5 +27,5 @@ cerberus_LIMIT=50 \
 cerberus_URL='https://lcd-cerberus.cosmostation.io/cosmos/tx/v1beta1/txs?pagination.limit=50&pagination.offset={OFFSET}&events={DIRECTION}%3D%27{WALLET}%27' \
 cerberus_NODES='https://lcd-cerberus.cosmostation.io/cosmos/staking/v1beta1/validators?pagination.limit=500' \
 PORT=3001 \
-TTL=120 \
+TTL=600 \
 /usr/bin/env node server.mjs 2>&1 | tee -a output-test.log

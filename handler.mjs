@@ -58,7 +58,7 @@ export const submitAddresses = async (event, context, callback) => {
 
     // running this in the background doesn't seem to work, so we'll wait
     await runProcess(redis, key, wallets, config).catch(async (error) => {
-        await discord("key: " + this.key + ", had an error: " + JSON.stringify(error));
+        await discord("key: " + key + ", had an error: " + JSON.stringify(error));
         console.log(error);
         await redis.set(key + '_status', 'Error: ' + error);
         await redis.expire(key + '_status', process.env.TTL);

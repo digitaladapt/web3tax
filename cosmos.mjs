@@ -117,7 +117,7 @@ export function Cosmos(redis, key, action, config, wallets) {
     this.config  = config;
     this.wallets = wallets.reduce((a, b) => { a[b] = true; return a; }, {}); // this.wallets = {"chihuahua1..": true}
     this.calc    = new Calculation(this.redis, this.key, this.action, this.config);
-    this.fee     = this.action.tx.auth_info.fee.amount[0]; // {"denom":"uhuahua","amount":"1000"}
+    this.fee     = this.action.tx.auth_info.fee.amount[0] ?? '0u'; // {"denom":"uhuahua","amount":"1000"} or fallback to 0
     this.messageCount = this.action.tx.body.messages.length;
 
     this.logTx = async () => {
@@ -128,7 +128,7 @@ export function Cosmos(redis, key, action, config, wallets) {
 
         // remember, this transaction could have be performed by a grantee, and fee paid by someone else
         // TODO review who paid for the tx, and who the tx is related to.
-        console.log(JSON.stringify(this.fee));
+        //console.log(JSON.stringify(this.fee));
         for (const [index, message] of Object.entries(this.action.tx.body.messages)) {
             // for this message of this transaction, find the related events, a
             let events = [];
@@ -163,7 +163,7 @@ export function Cosmos(redis, key, action, config, wallets) {
                     delegatorReward.count++;
                     delegatorReward.amount += Number(assetAmount(rewards));
                     delegatorReward.denom = token(rewards);
-                    console.log(JSON.stringify(delegatorReward));
+                    //console.log(JSON.stringify(delegatorReward));
                     break;
                 case '/cosmos.staking.v1beta1.MsgBeginRedelegate':
                     await this.logOtherFee(
@@ -206,6 +206,9 @@ export function Cosmos(redis, key, action, config, wallets) {
                             exchange:  this.action.chain,
                         });
                     }
+                    break;
+                case '/cosmos.bank.v1beta1.MsgMultiSend':
+                    // TODO ...
                     break;
                 case '/ibc.applications.transfer.v1.MsgTransfer':
                     // IBC "Send" Message
@@ -312,16 +315,16 @@ export function Cosmos(redis, key, action, config, wallets) {
                     // {"type":"transfer","attributes":[{"key":"recipient","value":"cerberus1sv0dpae7rwmvguq7eftzlmps2ff59tkaekpl30"},{"key":"sender","value":"cerberus1jv65s3grqf6v6jl3dp4t6c9t9rk99cd8mcy4u5"},{"key":"amount","value":"154627316ucrbrus"}]},{"type":"withdraw_rewards","attributes":[{"key":"amount","value":"154627316ucrbrus"},{"key":"validator","value":"cerberusvaloper10ypajp3q5zu5yxfud3ayd95th0k7467k3s5vh7"}]}]
                     break;
                 default:
-                    await discord("key: " + this.key + ", had an unknown transaction type: " + message['@type'] +
+                    discord("key: " + this.key + ", had an unknown transaction type: " + message['@type'] +
                         ", txhash: " + this.action.txhash + ", message: " + JSON.stringify(message) + ", events: " + JSON.stringify(events));
                     break;
             } //
-            console.log("Message: " + JSON.stringify(message));
-            console.log("Events: " + JSON.stringify(events));
+            //console.log("Message: " + JSON.stringify(message));
+            //console.log("Events: " + JSON.stringify(events));
             //await this.calc.storeRecord(message);
         }
-        console.log("TxHash: " + this.action.txhash);
-        console.log('------------');
+        //console.log("TxHash: " + this.action.txhash);
+        //console.log('------------');
         //console.log(JSON.stringify(this.action.tx.auth_info.fee.amount));
         //console.log(JSON.stringify(this.action.tx.body.messages));
         //await this.calc.storeRecord(this.action.tx.body.messages);
@@ -343,14 +346,18 @@ export function Cosmos(redis, key, action, config, wallets) {
     };
 
     this.logOtherFee = async (comment) => {
-        await this.calc.storeRecord({
-            type:       'Other Fee',
-            sellAmount: assetAmount(this.fee, this.messageCount),
-            sellCurr:   token(this.fee),
-            comment:    comment,
-            date:       formatDate(this.action.timestamp),
-            txID:       this.action.txhash,
-            exchange:   this.action.chain,
-        });
+        if (this.fee && assetAmount(this.fee) > 0.0) {
+            await this.calc.storeRecord({
+                type:       'Other Fee',
+                sellAmount: assetAmount(this.fee, this.messageCount),
+                sellCurr:   token(this.fee),
+                comment:    comment,
+                date:       formatDate(this.action.timestamp),
+                txID:       this.action.txhash,
+                exchange:   this.action.chain,
+            });
+        } else {
+            console.log('No fee found for transaction: "' + comment + '".');
+        }
     };
 }

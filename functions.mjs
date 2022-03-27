@@ -413,6 +413,7 @@ export const runProcess = async (redis, key, wallets, config) => {
     let firstAction = true;
     let theCount = -1;
     let thePage  = 0;
+    let theLimit = -1;
     // let theHeight = 0;
 
     const addAction = async (action) => {
@@ -440,7 +441,7 @@ export const runProcess = async (redis, key, wallets, config) => {
         theCount = count;
         //console.log('setting-count');
         await redis.set(key + '_count', count);
-        await redis.set(key + '_status', 'Phase ' + phase + ' of ' + total + ', Downloading ' + Math.min((thePage + 1) * process.env.MIDGARD_LIMIT, count) + ' of ' + count);
+        await redis.set(key + '_status', 'Phase ' + phase + ' of ' + total + ', Downloading ' + Math.min((thePage + 1) * theLimit, count) + ' of ' + count);
         await redis.expire(key + '_count', process.env.TTL);
         await redis.expire(key + '_status', process.env.TTL);
     };
@@ -480,10 +481,11 @@ export const runProcess = async (redis, key, wallets, config) => {
     // phase 1, download ThorChain transactions via Midgard
     if (wallets[RUNE_TAG]) {
         phase++;
+        theLimit = process.env.MIDGARD_LIMIT;
         do {
             await midgard(wallets[RUNE_TAG], thePage, addAction, setCount);
             thePage++;
-        } while (thePage * process.env.MIDGARD_LIMIT < theCount);
+        } while (thePage * theLimit < theCount);
     }
 
     // phase 2, download ThorChain to ThorChain "Send" transactions, from a separate API
@@ -494,10 +496,11 @@ export const runProcess = async (redis, key, wallets, config) => {
                 phase++;
                 theCount = -1;
                 thePage = 0;
+                theLimit = process.env.THORNODE_LIMIT;
                 do {
                     await thornode(wallet, thePage, direction, addAction, setCount);
                     thePage++;
-                } while (thePage * process.env.THORNODE_LIMIT < theCount);
+                } while (thePage * theLimit < theCount);
             }
         }
     }
@@ -506,7 +509,7 @@ export const runProcess = async (redis, key, wallets, config) => {
     if (wallets[COSMOS_TAG]) {
         for (const wallet of wallets[COSMOS_TAG]) {
             const network = wallet.split('1')[0]; // "chihuahua1sv0..." into just "chihuahua"
-            const theLimit   = process.env[network + '_LIMIT'];
+            theLimit   = process.env[network + '_LIMIT'];
             for (const direction of ['message.sender', 'transfer.recipient']) {
                 phase++;
                 // TODO add other "directions" as needed
@@ -523,7 +526,10 @@ export const runProcess = async (redis, key, wallets, config) => {
         }
     }
 
-    await redis.set(key + '_status', 'Phase ' + total + ' of ' + total + ', Now Processing Transactions');
+    theCount = await redis.zCard(key + '_action');
+    await redis.set(key + '_count', theCount);
+    await redis.set(key + '_status', 'Phase ' + total + ' of ' + total + ', Now Processing ' + theCount + ' Transactions');
+    await redis.expire(key + '_count', process.env.TTL);
     await redis.expire(key + '_status', process.env.TTL);
     let rowNumber = 0;
 
@@ -541,7 +547,7 @@ export const runProcess = async (redis, key, wallets, config) => {
         const action = JSON.parse(row);
 
         if (action.isCosmosTx) {
-            const cosmos = new Cosmos(redis, key, action, config, wallets[COSMOS_TAG])
+            const cosmos = new Cosmos(redis, key, action, config, wallets[COSMOS_TAG]);
             await cosmos.logTx();
             continue;
         }

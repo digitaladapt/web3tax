@@ -1,10 +1,11 @@
 'use strict';
 
+import { exec } from 'child_process';
 import fetch from 'node-fetch';
 import { createClient } from 'redis';
 import crypto from 'crypto';
 import { Calculation } from "./calculations.mjs";
-import {Cosmos} from "./cosmos.mjs";
+import { Cosmos } from "./cosmos.mjs";
 
 const THOR_TAG = 'thor'; // just thor addresses
 const RUNE_TAG = 'rune'; // anything thor related (like doge)
@@ -78,6 +79,31 @@ export const getRedis = async () => {
     await client.connect();
 
     return client;
+};
+
+let discordTimeout;
+let discordMessage = '';
+let discordLast = new Date();
+
+export const discord = async (message) => {
+    console.log(message);
+    if (discordTimeout) {
+        clearTimeout(discordTimeout);
+    }
+    if (discordMessage.length > 0 && (new Date()).getTime() - discordLast.getTime() > 10000) {
+        await discordNow();
+    }
+    discordMessage += (discordMessage.length > 0 ? ('\n ') : '') + message;
+    discordTimeout = setTimeout(discordNow, 9000);
+};
+
+const discordNow = async () => {
+    let message = discordMessage;
+    discordMessage = '';
+    discordLast = new Date();
+    // message is wrapped in single quotes, so we have to escape any in the message
+    message = String(message).replace("'", "\\'");
+    exec("discord-if-distinct.sh general '" + message + "'");
 };
 
 // gets transactions for specific page for the given wallet list: (["thor1..", "bnb1.."], 3)

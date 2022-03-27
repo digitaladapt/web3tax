@@ -1,7 +1,7 @@
 'use strict';
 
 import { Calculation } from "./calculations.mjs";
-import {dateToString, getNode} from "./functions.mjs";
+import { dateToString, discord, getNode } from "./functions.mjs";
 
 /* 1 ATOM/HUAHUA/etc === 1000000 uatom/uhuahua/etc; Cosmos has upto 6 digits after the decimal point */
 const BASE_OFFSET   = 1000000;
@@ -104,7 +104,16 @@ export const token = (denom) => {
 export function Cosmos(redis, key, action, config, wallets) {
     this.redis   = redis;
     this.key     = key;
-    this.action  = action;
+    this.action  = action ?? {
+        // this is the basic structure of a cosmos action, just for code completion
+        logs: [{msg_index: 0}],
+        tx: {auth_info: {fee: {amount: [{denom: '', amount: ''}]}}, body: {messages: [{
+            '@type': '', validator_src_address: '', validator_dst_address: '',
+            option: '', proposal_id: 0, validator_address: '', from_address: '', to_address: '',
+            packet: {data: {denom: ''}},
+        }]},},
+        txhash: '',
+    };
     this.config  = config;
     this.wallets = wallets.reduce((a, b) => { a[b] = true; return a; }, {}); // this.wallets = {"chihuahua1..": true}
     this.calc    = new Calculation(this.redis, this.key, this.action, this.config);
@@ -243,7 +252,7 @@ export function Cosmos(redis, key, action, config, wallets) {
                         await this.calc.storeRecord({
                             type:       'Withdrawal',
                             sellAmount: assetAmount(data.amount),
-                            sellCurr:   token(data.demon),
+                            sellCurr:   token(data.denom),
                             comment:    'Sent to ' + data.receiver.split('1')[0].toUpperCase(),
                             date:       formatDate(this.action.timestamp),
                             txID:       this.action.txhash,
@@ -303,8 +312,8 @@ export function Cosmos(redis, key, action, config, wallets) {
                     // {"type":"transfer","attributes":[{"key":"recipient","value":"cerberus1sv0dpae7rwmvguq7eftzlmps2ff59tkaekpl30"},{"key":"sender","value":"cerberus1jv65s3grqf6v6jl3dp4t6c9t9rk99cd8mcy4u5"},{"key":"amount","value":"154627316ucrbrus"}]},{"type":"withdraw_rewards","attributes":[{"key":"amount","value":"154627316ucrbrus"},{"key":"validator","value":"cerberusvaloper10ypajp3q5zu5yxfud3ayd95th0k7467k3s5vh7"}]}]
                     break;
                 default:
-                    // TODO see if I can trigger a discord message or something..
-                    console.log('unknown type: ' + message['@type']);
+                    await discord("key: " + this.key + ", had an unknown transaction type: " + message['@type'] +
+                        ", txhash: " + this.action.txhash + ", message: " + JSON.stringify(message) + ", events: " + JSON.stringify(events));
                     break;
             } //
             console.log("Message: " + JSON.stringify(message));

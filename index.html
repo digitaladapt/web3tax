@@ -32,9 +32,9 @@
                         <form class="taxForm">
                             <input type="hidden" name="opt-verbose" value="standard">
                             <div class="field"><div class="control">
-                                <label class="label">HUAHUA <input type="text" name="chihuahua" class="input" placeholder="chihuahua1..." autocomplete="on"></label>
+                                <label class="label">HUAHUA <span class="tag is-warning">currently limited to first 1,000 transactions, due to performance issues</span><input type="text" name="chihuahua" class="input" placeholder="chihuahua1..." autocomplete="on"></label>
                             </div></div><div class="field"><div class="control">
-                                <label class="label">CRBRUS <input type="text" name="cerberus" class="input" placeholder="cerberus1..." autocomplete="on"></label>
+                                <label class="label">CRBRUS <span class="tag is-warning">currently limited to first 1,000 transactions, due to performance issues</span><input type="text" name="cerberus" class="input" placeholder="cerberus1..." autocomplete="on"></label>
                             </div></div><div class="field"><div class="control">
                                 <label class="label">THOR <input type="text" name="thor" class="input thorAddress" placeholder="thor1..." autocomplete="on"></label>
                             </div></div><div class="field"><div class="control">
@@ -60,6 +60,11 @@
                                     <label class="checkbox"><input type="checkbox" name="opt-separate" value="on"> Non-native RUNE as separate asset <span class="tag is-danger">causes import bugs on Koinly / CoinTracker</span></label>
                                 </div>
                                 <p class="help">If checked, upgrading your RUNE will be reported as a trade.</p>
+                            </div><div class="field">
+                                <div class="control">
+                                    <label class="checkbox"><input type="checkbox" name="opt-compound" value="on"> Report compounding transactions <span class="tag is-warning">will increase output significantly</span></label>
+                                </div>
+                                <p class="help">If checked, any related AuthZ granted transactions will be reported.</p>
                             </div><div class="field is-grouped is-grouped-multiline">
                                 <div class="control">
                                     <button type="submit" class="button is-info taxGo">Generate Report</button>

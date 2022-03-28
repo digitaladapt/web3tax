@@ -49,6 +49,9 @@ export const assetAmount = (tor, divisor) => {
     } else if (typeof tor === 'string') {
         tor = Number(tor.replace(/[^0-9.]+/g, ''));
     }
+    if (tor === 0.0 || typeof tor !== 'number') {
+        return ''; // don't put zeros in the output
+    }
     return Number((tor / divisor) / BASE_OFFSET).toFixed(ASSET_DECIMAL);
 };
 
@@ -110,7 +113,7 @@ export function Cosmos(redis, key, action, config, wallets) {
         tx: {auth_info: {fee: {amount: [{denom: '', amount: ''}]}}, body: {messages: [{
             '@type': '', validator_src_address: '', validator_dst_address: '',
             option: '', proposal_id: 0, validator_address: '', from_address: '', to_address: '',
-            packet: {data: {denom: ''}},
+            packet: {data: ''}, delegator_address: '', msgs: [], grantee: '',
         }]},},
         txhash: '',
     };
@@ -120,26 +123,37 @@ export function Cosmos(redis, key, action, config, wallets) {
     this.fee     = this.action.tx.auth_info.fee.amount[0] ?? '0u'; // {"denom":"uhuahua","amount":"1000"} or fallback to 0
     this.messageCount = this.action.tx.body.messages.length;
 
-    this.logTx = async () => {
+    /* arguments are only used internally for a single level of recursion, for authz messages (if relevant and enabled) */
+    this.logTx = async (messages, events, fee) => {
+        let originalFee = null;
+        if (typeof messages === 'undefined') {
+            // standard case, we use the messages from the tx.
+            messages = this.action.tx.body.messages;
+        }
+        if (typeof fee !== 'undefined') {
+            originalFee = this.fee;
+            this.fee = fee;
+        }
         // amount is ATOM/HUAHUA/etc (not uatom/uhuahua/etc)
         // notice: we assume only one asset type of rewards claiming per tx.
         // we know this to not be true for Terra/Luna, should we want to support that, this will need a revisit
         const delegatorReward = { count: 0, denom: null, amount: 0 };
 
-        // remember, this transaction could have be performed by a grantee, and fee paid by someone else
-        // TODO review who paid for the tx, and who the tx is related to.
-        //console.log(JSON.stringify(this.fee));
-        for (const [index, message] of Object.entries(this.action.tx.body.messages)) {
+        // console.log(JSON.stringify(this.fee));
+        for (const [index, message] of Object.entries(messages)) {
             // for this message of this transaction, find the related events, a
-            let events = [];
-            for (const log of this.action.logs) {
-                if (Number(log.msg_index) === Number(index)) {
-                    events = log.events;
-                    break;
+            if (typeof events === 'undefined') {
+                // standard case, we use the events from the logs
+                events = [];
+                for (const log of this.action.logs) {
+                    if (Number(log.msg_index) === Number(index)) {
+                        events = log.events;
+                        break;
+                    }
                 }
             }
 
-            // TODO some messages need to be filtered out, because they may not be related to the given wallet..
+            // remember most messages need to be compared against our list of wallets, to filter out unrelated stuff
             // IE: TX is airdrop to 1000 people, only a single message is related..
             // IE: re-stake, if bot is getting their report, just sum the tx cost as business expense
             // IE: re-stake, if user is getting their report, no fee (paid by bot), and then only if they want compounding txs..
@@ -159,11 +173,13 @@ export function Cosmos(redis, key, action, config, wallets) {
                     });
                     break;
                 case '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward':
-                    let rewards = getEvent(events, 'withdraw_rewards', 'amount');
-                    delegatorReward.count++;
-                    delegatorReward.amount += Number(assetAmount(rewards));
-                    delegatorReward.denom = token(rewards);
-                    //console.log(JSON.stringify(delegatorReward));
+                    if (this.wallets[message.delegator_address]) {
+                        let rewards = getEvent(events, 'withdraw_rewards', 'amount');
+                        delegatorReward.count++;
+                        delegatorReward.amount += Number(assetAmount(rewards));
+                        delegatorReward.denom = token(rewards);
+                        // console.log(JSON.stringify(delegatorReward));
+                    }
                     break;
                 case '/cosmos.staking.v1beta1.MsgBeginRedelegate':
                     await this.logOtherFee(
@@ -176,10 +192,12 @@ export function Cosmos(redis, key, action, config, wallets) {
                     await this.logOtherFee('Voted "' + formatVote(message.option) + '" on Prop #' + message.proposal_id);
                     break;
                 case '/cosmos.staking.v1beta1.MsgDelegate':
-                    await this.logOtherFee(
-                        'Delegated ' + assetAmount(message.amount) + ' ' + token(message.amount) + ' to "'
-                        + getNode(this.action.chain, message.validator_address) + '"'
-                    );
+                    if (this.wallets[message.delegator_address]) {
+                        await this.logOtherFee(
+                            'Delegated ' + assetAmount(message.amount) + ' ' + token(message.amount) + ' to "'
+                            + getNode(this.action.chain, message.validator_address) + '"'
+                        );
+                    }
                     break;
                 case '/cosmos.bank.v1beta1.MsgSend':
                     // determine if this is either send and/or receive
@@ -208,7 +226,48 @@ export function Cosmos(redis, key, action, config, wallets) {
                     }
                     break;
                 case '/cosmos.bank.v1beta1.MsgMultiSend':
-                    // TODO ...
+                    const sender = {};
+                    const recipient = {};
+                    for (const input of message.inputs) {
+                        if (this.wallets[input.address]) {
+                            if (typeof sender[token(input.coins[0])] !== 'number') {
+                                sender[token(input.coins[0])] = 0.0;
+                            }
+                            sender[token(input.coins[0])] += Number(assetAmount(input.coins[0]));
+                        }
+                    }
+                    for (const output of message.outputs) {
+                        if (this.wallets[output.address]) {
+                            if (typeof recipient[token(output.coins[0])] !== 'number') {
+                                recipient[token(output.coins[0])] = 0.0;
+                            }
+                            recipient[token(output.coins[0])] += Number(assetAmount(output.coins[0]));
+                        }
+                    }
+                    for (const [denom, amount] of Object.entries(sender)) {
+                        await this.calc.storeRecord({
+                            type:       'Withdrawal',
+                            sellAmount: assetFormat(amount),
+                            sellCurr:   denom,
+                            comment:    'Sender of MultiSend',
+                            fee:        assetAmount(this.fee, this.messageCount),
+                            feeCurr:    token(this.fee),
+                            date:       formatDate(this.action.timestamp),
+                            txID:       this.action.txhash,
+                            exchange:   this.action.chain,
+                        });
+                    }
+                    for (const [denom, amount] of Object.entries(recipient)) {
+                        await this.calc.storeRecord({
+                            type:      'Deposit',
+                            buyAmount: assetFormat(amount),
+                            buyCurr:   denom,
+                            comment:   'Recipient from MultiSend',
+                            date:      formatDate(this.action.timestamp),
+                            txID:      this.action.txhash,
+                            exchange:  this.action.chain,
+                        });
+                    }
                     break;
                 case '/ibc.applications.transfer.v1.MsgTransfer':
                     // IBC "Send" Message
@@ -239,14 +298,14 @@ export function Cosmos(redis, key, action, config, wallets) {
                     }
                     break;
                 case '/cosmos.staking.v1beta1.MsgCreateValidator':
-                    await this.logOtherFee('Created Validator');
+                    await this.logOtherFee('Created Validator', 'Other Expense');
                     break;
                 case '/cosmos.staking.v1beta1.MsgEditValidator':
-                    await this.logOtherFee('Edited Validator');
+                    await this.logOtherFee('Edited Validator', 'Other Expense');
                     break;
                 case '/ibc.core.channel.v1.MsgRecvPacket':
                     // IBC "Receive" Message, has packet.data (in base64) containing: amount, denom, sender, and receiver
-                    const buff = new Buffer(message.packet.data, 'base64');
+                    const buff = Buffer.from(message.packet.data, 'base64');
                     const json = buff.toString('ascii');
                     const data = JSON.parse(json);
 
@@ -285,50 +344,28 @@ export function Cosmos(redis, key, action, config, wallets) {
                     await this.logOtherFee('AuthZ Revoke');
                     break;
                 case '/cosmos.authz.v1beta1.MsgExec':
-                    // TODO make it recursive, msgs could be passed into this function again for looping over, events would
-                    // need to be passed as well, see events.message array..
-                    //
-                    // Message: {"@type":"/cosmos.authz.v1beta1.MsgExec",
-                    // "grantee":"cerberus13yfd74cezsrjcmhvmh6wkfwfuj7fds5eenhn64",
-                    // "msgs":[
-                    //
-                    // {"@type":"/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward",
-                    // "delegator_address":"cerberus1sv0dpae7rwmvguq7eftzlmps2ff59tkaekpl30",
-                    // "validator_address":"cerberusvaloper10ypajp3q5zu5yxfud3ayd95th0k7467k3s5vh7"},
-                    //
-                    // {"@type":"/cosmos.staking.v1beta1.MsgDelegate",
-                    // "delegator_address":"cerberus1sv0dpae7rwmvguq7eftzlmps2ff59tkaekpl30",
-                    // "validator_address":"cerberusvaloper10ypajp3q5zu5yxfud3ayd95th0k7467k3s5vh7",
-                    // "amount":{"denom":"ucrbrus","amount":"154347842"}}
-                    //
-                    // ]}
-                    //
-                    // Events: [{"type":"coin_received","attributes":[{"key":"receiver","value":"cerberus1sv0dpae7rwmvguq7eftzlmps2ff59tkaekpl30"},{"key":"amount","value":"154627316ucrbrus"},{"key":"receiver","value":"cerberus1fl48vsnmsdzcv85q5d2q4z5ajdha8yu3fufxvu"},{"key":"amount","value":"154347842ucrbrus"}]},{"type":"coin_spent","attributes":[{"key":"spender","value":"cerberus1jv65s3grqf6v6jl3dp4t6c9t9rk99cd8mcy4u5"},{"key":"amount","value":"154627316ucrbrus"},{"key":"spender","value":"cerberus1sv0dpae7rwmvguq7eftzlmps2ff59tkaekpl30"},{"key":"amount","value":"154347842ucrbrus"}]},{"type":"delegate","attributes":[{"key":"validator","value":"cerberusvaloper10ypajp3q5zu5yxfud3ayd95th0k7467k3s5vh7"},{"key":"amount","value":"154347842ucrbrus"},{"key":"new_shares","value":"154347842.000000000000000000"}]},
-                    // {"type":"message","attributes":[
-                    //  {"key":"action","value":"/cosmos.authz.v1beta1.MsgExec"},
-                    //  {"key":"sender","value":"cerberus1jv65s3grqf6v6jl3dp4t6c9t9rk99cd8mcy4u5"},
-                    //  {"key":"module","value":"distribution"},
-                    //  {"key":"sender","value":"cerberus1sv0dpae7rwmvguq7eftzlmps2ff59tkaekpl30"},
-                    //  {"key":"module","value":"staking"},
-                    //  {"key":"sender","value":"cerberus1sv0dpae7rwmvguq7eftzlmps2ff59tkaekpl30"}
-                    // ]},
-                    // {"type":"transfer","attributes":[{"key":"recipient","value":"cerberus1sv0dpae7rwmvguq7eftzlmps2ff59tkaekpl30"},{"key":"sender","value":"cerberus1jv65s3grqf6v6jl3dp4t6c9t9rk99cd8mcy4u5"},{"key":"amount","value":"154627316ucrbrus"}]},{"type":"withdraw_rewards","attributes":[{"key":"amount","value":"154627316ucrbrus"},{"key":"validator","value":"cerberusvaloper10ypajp3q5zu5yxfud3ayd95th0k7467k3s5vh7"}]}]
+                    if (this.wallets[message.grantee]) {
+                        // grantee is the authorized bot, since that's our wallet, we just want to report the expense
+                        await this.logOtherFee('AuthZ Bot Fee', 'Other Expense');
+                    } else if (this.config.includeAuthZ) {
+                        // not-grantee, so message content must be our connection to this transaction, so process it
+                        // but only if user opted-in
+                        await this.logTx(message.msgs, events, '0u'); // touch of recursion
+                    }
                     break;
                 default:
                     discord("key: " + this.key + ", had an unknown transaction type: " + message['@type'] +
-                        ", txhash: " + this.action.txhash + ", message: " + JSON.stringify(message) + ", events: " + JSON.stringify(events));
+                        ", txhash: " + this.action.txhash + ", message: " + JSON.stringify(message) +
+                        ", events: " + JSON.stringify(events)
+                    ).catch(() => {
+                        console.log('failed to send discord message');
+                    });
                     break;
-            } //
-            //console.log("Message: " + JSON.stringify(message));
-            //console.log("Events: " + JSON.stringify(events));
-            //await this.calc.storeRecord(message);
+            }
+            // console.log('Message: ' + JSON.stringify(message));
+            // console.log('Events : ' + JSON.stringify(events));
+            // console.log('--------');
         }
-        //console.log("TxHash: " + this.action.txhash);
-        //console.log('------------');
-        //console.log(JSON.stringify(this.action.tx.auth_info.fee.amount));
-        //console.log(JSON.stringify(this.action.tx.body.messages));
-        //await this.calc.storeRecord(this.action.tx.body.messages);
-        // TODO
 
         // because it's common to collect multiple rewards in a single transaction, we group it all together
         if (delegatorReward.count > 0) {
@@ -343,12 +380,17 @@ export function Cosmos(redis, key, action, config, wallets) {
                 exchange:  this.action.chain,
             });
         }
+        if (originalFee) {
+            // restore the original fee
+            this.fee = originalFee;
+        }
     };
 
-    this.logOtherFee = async (comment) => {
-        if (this.fee && assetAmount(this.fee) > 0.0) {
+    this.logOtherFee = async (comment, type) => {
+        const hasFee = Number(assetAmount(this.fee)) > 0.0;
+        if (hasFee || this.config.includeAuthZ) {
             await this.calc.storeRecord({
-                type:       'Other Fee',
+                type:       type ?? (hasFee ? 'Other Fee' : 'Logging'),
                 sellAmount: assetAmount(this.fee, this.messageCount),
                 sellCurr:   token(this.fee),
                 comment:    comment,

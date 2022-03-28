@@ -20,8 +20,8 @@ const server = http.createServer((req, res) => {
     });
     // parsed: {"pathname": "/path"}; query: {"key": "value"};
 
-    //res.setHeader('Content-Type', 'application/json');
-    //res.end(JSON.stringify(parsed));
+    // res.setHeader('Content-Type', 'application/json');
+    // res.end(JSON.stringify(parsed));
 
     switch (parsed.pathname) {
         case '/':

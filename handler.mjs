@@ -28,7 +28,7 @@ export const submitAddresses = async (event, context, callback) => {
     let wallets;
     try {
         wallets = normalizeAddresses(event.queryStringParameters);
-        //console.log(wallets);
+        // console.log(wallets);
     } catch (errors) {
         callback(null, formatError('Invalid wallet address(es) provided: ' + errors.join(', ')));
         return;
@@ -49,7 +49,7 @@ export const submitAddresses = async (event, context, callback) => {
 
     if (await redis.exists(key + '_status')) {
         await redis.quit();
-        console.log('already running.'); // FIXME
+        console.log('already running|' + Date.now() + '|' + key);
         callback(null, formatSuccess({key: key, message: 'Process already running'}));
         return;
     }
@@ -57,6 +57,7 @@ export const submitAddresses = async (event, context, callback) => {
     callback(null, formatSuccess({key: key, message: 'Processing started'}));
 
     // running this in the background doesn't seem to work, so we'll wait
+    console.log('processing|' + Date.now() + '|' + key);
     await runProcess(redis, key, wallets, config).catch(async (error) => {
         await discord("key: " + key + ", had an error: " + JSON.stringify(error));
         console.log(error);

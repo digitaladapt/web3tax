@@ -413,7 +413,8 @@ export const normalizeConfig = (options) => {
 
 // download the results, and calculate the report
 export const runProcess = async (redis, key, wallets, config) => {
-    const total = (wallets[RUNE_TAG]?.length ?? 0) + (2 * (wallets[THOR_TAG]?.length ?? 0)) + (2 * (wallets[COSMOS_TAG]?.length ?? 0));
+    // 1 phase for processing, 1 phase for midgard, 2 phases per thor address, and 2 phases per cosmos address
+    const total = 1 + (wallets[RUNE_TAG]?.length > 0 ? 1 : 0) + (2 * (wallets[THOR_TAG]?.length ?? 0)) + (2 * (wallets[COSMOS_TAG]?.length ?? 0));
     let phase = 0;
     let firstAction = true;
     let theCount = -1;

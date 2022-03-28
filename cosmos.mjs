@@ -45,7 +45,7 @@ export const assetAmount = (tor, divisor) => {
         divisor = 1.0;
     }
     if (typeof tor === 'object') {
-        tor = Number(tor.amount);
+        tor = Number(tor?.amount ?? 0);
     } else if (typeof tor === 'string') {
         tor = Number(tor.replace(/[^0-9.]+/g, ''));
     }
@@ -92,7 +92,7 @@ export const formatVote = (option) => {
  * all the above examples mean "1.654321 ATOM" and would result in string output like "ATOM" */
 export const token = (denom) => {
     if (typeof denom === 'object') {
-        denom = denom.denom;
+        denom = (denom?.denom ?? '');
     }
     // take everything after the last "/", convert to upper-case, and remove all digits or dots.
     denom = denom.split('/').pop().toUpperCase().replace(/[0-9.]+/g, '');
@@ -124,7 +124,7 @@ export function Cosmos(redis, key, action, config, wallets) {
     this.messageCount = this.action.tx.body.messages.length;
 
     /* arguments are only used internally for a single level of recursion, for authz messages (if relevant and enabled) */
-    this.logTx = async (messages, events, fee) => {
+    this.logTx = async (messages, theEvents, fee) => {
         let originalFee = null;
         if (typeof messages === 'undefined') {
             // standard case, we use the messages from the tx.
@@ -142,15 +142,18 @@ export function Cosmos(redis, key, action, config, wallets) {
         // console.log(JSON.stringify(this.fee));
         for (const [index, message] of Object.entries(messages)) {
             // for this message of this transaction, find the related events, a
-            if (typeof events === 'undefined') {
+            let events = [];
+            if (typeof theEvents === 'undefined') {
                 // standard case, we use the events from the logs
-                events = [];
                 for (const log of this.action.logs) {
                     if (Number(log.msg_index) === Number(index)) {
                         events = log.events;
                         break;
                     }
                 }
+            } else {
+                // recursive case, use the override
+                events = theEvents;
             }
 
             // remember most messages need to be compared against our list of wallets, to filter out unrelated stuff
@@ -373,6 +376,7 @@ export function Cosmos(redis, key, action, config, wallets) {
                 type:      'Staking',
                 buyAmount: assetFormat(delegatorReward.amount), // already in asset number
                 buyCurr:   delegatorReward.denom, // already in token format
+                comment:   'Collected rewards from ' + delegatorReward.count + ' validator' + (delegatorReward.count > 1 ? 's' : ''),
                 fee:       assetAmount(this.fee, this.messageCount / delegatorReward.count),
                 feeCurr:   token(this.fee),
                 date:      formatDate(this.action.timestamp),

@@ -6,6 +6,7 @@ import { createClient } from 'redis';
 import crypto from 'crypto';
 import { Calculation } from "./calculations.mjs";
 import { Cosmos } from "./cosmos.mjs";
+import { groupedTransactions } from "./groupedTransactions.mjs";
 
 const THOR_TAG = 'thor'; // just thor addresses
 const RUNE_TAG = 'rune'; // anything thor related (like doge)
@@ -163,6 +164,34 @@ export const thornode = async (wallet, pagination, direction, addAction, setCoun
     }).catch((error) => {
         throw error;
     });
+};
+
+export const historicalThornode = async (wallet, addAction) => {
+    if (groupedTransactions[wallet]) {
+        for (const tx of groupedTransactions[wallet]) {
+            const inOut = tx.recipient === wallet ? 'in' : 'out';
+            const action = {
+                type: 'send',
+                metadata: {
+                    send: {
+                        networkFees: [{
+                            asset: 'THOR.RUNE',
+                            amount: 2000000,
+                        }],
+                    },
+                },
+                date: String((new Date(tx.timestamp)).getTime()) + '000000',
+            };
+            action[inOut] = [{
+                coins: [{
+                    asset: tx.asset,
+                    amount: tx.amount,
+                }],
+                txID: tx.txhash,
+            }];
+            addAction(action);
+        }
+    }
 };
 
 // previously: (network, wallet, pagination, direction, height, addCosmosTx, setCount, setHeight)
@@ -508,6 +537,10 @@ export const runProcess = async (redis, key, wallets, config) => {
                     thePage++;
                 } while (thePage * theLimit < theCount);
             }
+
+            // throw in any pre-fork (March 2022) transactions (rune wallet to rune wallet)
+            // remember: these both current and historical thornode transactions include synthetics
+            await historicalThornode(wallet, addAction);
         }
     }
 

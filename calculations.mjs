@@ -29,6 +29,13 @@ export const assetAmount = (tor) => {
     return Number(tor / BASE_OFFSET).toFixed(ASSET_DECIMAL);
 };
 
+export const isSynth = (asset) => {
+    return asset.includes('/');
+};
+export const isExternal = (asset) => {
+    return ! asset.includes('/');
+};
+
 /* refactored all functions which need redis, config, etc. into a class
  * so that we can stop passing those variables everywhere. */
 export function Calculation(redis, key, action, config) {
@@ -87,7 +94,7 @@ export function Calculation(redis, key, action, config) {
 
         // after a swap to a non-RUNE asset, we have to "send" it to other wallet
         // no fee, since it was already handled in the trade
-        if (this.action.out[0].coins[0].asset !== RUNE_ASSET) {
+        if (this.action.out[0].coins[0].asset !== RUNE_ASSET && isExternal(this.action.out[0].coins[0].asset)) {
             for (const sent of this.action.out) {
                 await this.storeRecord({
                     type:       'Withdrawal',
@@ -322,7 +329,7 @@ export function Calculation(redis, key, action, config) {
 
             // before most operations from a non-RUNE asset, we have to "receive" it to the RUNE wallet
             // no fee, since it was already handled in the other wallet
-            if (receive.coins[0].asset !== RUNE_ASSET) {
+            if (receive.coins[0].asset !== RUNE_ASSET && isExternal(receive.coins[0].asset)) {
                 await this.storeRecord({
                     type:      'Deposit',
                     buyAmount: coins[this.token(receive.coins[0].asset)],

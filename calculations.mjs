@@ -419,7 +419,7 @@ export function Calculation(redis, key, action, config) {
                 // default: proceed as normal
             }
         }
-        return asset.split(/[\.\/]/)[1].split('-')[0];
+        return asset.split(/[.\/]/)[1].split('-')[0];
     };
 
     /* ---------------------------------------------------------------------- */

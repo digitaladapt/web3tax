@@ -1,7 +1,17 @@
 'use strict';
 
 import fs from 'fs';
-import { formatText, formatError, formatSuccess, getRedis, normalizeConfig, normalizeAddresses, runProcess, sha256 } from './functions.mjs';
+import {
+    formatText,
+    formatError,
+    formatSuccess,
+    getRedis,
+    normalizeConfig,
+    normalizeAddresses,
+    runProcess,
+    sha256,
+    discord
+} from './functions.mjs';
 
 // endpoint: render the html
 export const loadIndex = async () => {
@@ -18,13 +28,13 @@ export const submitAddresses = async (event, context, callback) => {
     let wallets;
     try {
         wallets = normalizeAddresses(event.queryStringParameters);
-        //console.log(wallets);
+        // console.log(wallets);
     } catch (errors) {
         callback(null, formatError('Invalid wallet address(es) provided: ' + errors.join(', ')));
         return;
     }
 
-    if (wallets.length < 1) {
+    if (wallets.all.length < 1) {
         callback(null, formatError('No wallet addresses provided'));
         return;
     }
@@ -33,12 +43,13 @@ export const submitAddresses = async (event, context, callback) => {
 
     // we need to ensure the same wallets, with a different config will generate a new report
     // since each option has an effect on the internal report built
-    const key = process.env.REDIS_PREFIX + sha256({ wallets: wallets, config: config });
+    const key = process.env.REDIS_PREFIX + sha256({ wallets: wallets.all, config: config });
 
     const redis = await getRedis();
 
     if (await redis.exists(key + '_status')) {
         await redis.quit();
+        console.log('already running|' + Date.now() + '|' + key);
         callback(null, formatSuccess({key: key, message: 'Process already running'}));
         return;
     }
@@ -46,7 +57,10 @@ export const submitAddresses = async (event, context, callback) => {
     callback(null, formatSuccess({key: key, message: 'Processing started'}));
 
     // running this in the background doesn't seem to work, so we'll wait
+    console.log('processing|' + Date.now() + '|' + key);
     await runProcess(redis, key, wallets, config).catch(async (error) => {
+        await discord("key: " + key + ", had an error: " + JSON.stringify(error));
+        console.log(error);
         await redis.set(key + '_status', 'Error: ' + error);
         await redis.expire(key + '_status', process.env.TTL);
         await redis.quit();
@@ -230,7 +244,7 @@ export const purgeReport = async (event) => {
     const redis = await getRedis();
 
     if (await redis.exists(key + '_status')) {
-        await redis.del(key);
+        await redis.del(key + '_action');
         await redis.del(key + '_status');
         await redis.del(key + '_count');
         await redis.del(key + '_record');

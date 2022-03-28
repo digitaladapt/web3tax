@@ -1,3 +1,11 @@
+TENTATIVE:
+
+support for both Chihuahua and Cerberus, complete with Authz, probably missing some edge case of transaction, such as un-delegate..
+some performance issues with cosmos chains, APIs are just slow, probably can make requests async to improve performance,
+if we're careful to not get rate-limited.
+
+---
+
 COMPLETED:
 support for Last-In-First-Out has been added internally as part of the code refactor.
 

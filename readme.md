@@ -15,6 +15,7 @@ ThorChain Midgard API parser written in NodeJS, with long-term plans of becoming
 * 18th, Feb, 2022: "Check LP Status" now supports partial withdrawals.
 * 1st, Mar, 2022: Added support for LIFO cost basis method.
 * 4th, Mar, 2022: ThorChain to ThorChain send transactions now supported via new data source API.
+* 28th, Mar, 2022: Chihuahua and Cerberus chains are now tentatively supported.
 ### Roadmap ###
 ThorChain related improvements (in no particular order)
 * fix rare edge-case bug: very large swaps with multiple output transactions, second output currently gets ignored.

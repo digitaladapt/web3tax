@@ -18,7 +18,7 @@
 import { chainToken, formatDate } from "./functions.mjs";
 
 /* 1 RUNE === 100000000 tor; RUNE has upto 8 digits after the decimal point */
-const BASE_OFFSET   = 100000000;
+export const BASE_OFFSET   = 100000000;
 const ASSET_DECIMAL = 8;
 const RUNE_ASSET    = 'THOR.RUNE';
 

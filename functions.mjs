@@ -4,7 +4,7 @@ import { exec } from 'child_process';
 import fetch from 'node-fetch';
 import { createClient } from 'redis';
 import crypto from 'crypto';
-import { Calculation } from "./calculations.mjs";
+import { BASE_OFFSET, Calculation } from "./calculations.mjs";
 import { Cosmos } from "./cosmos.mjs";
 import { groupedTransactions } from "./groupedTransactions.mjs";
 
@@ -185,7 +185,7 @@ export const historicalThornode = async (wallet, addAction) => {
             action[inOut] = [{
                 coins: [{
                     asset: tx.asset,
-                    amount: tx.amount,
+                    amount: Number(tx.amount * BASE_OFFSET).toFixed(0),
                 }],
                 txID: tx.txhash,
             }];

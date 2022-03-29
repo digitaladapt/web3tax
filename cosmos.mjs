@@ -194,6 +194,14 @@ export function Cosmos(redis, key, action, config, wallets) {
                 case '/cosmos.gov.v1beta1.MsgVote':
                     await this.logOtherFee('Voted "' + formatVote(message.option) + '" on Prop #' + message.proposal_id);
                     break;
+                case '/cosmos.staking.v1beta1.MsgUndelegate':
+                    if (this.wallets[message.delegator_address]) {
+                        await this.logOtherFee(
+                            'Undelegated ' + assetAmount(message.amount) + ' ' + token(message.amount) + ' from "'
+                            + getNode(this.action.chain, message.validator_address) + '"'
+                        );
+                    }
+                    break;
                 case '/cosmos.staking.v1beta1.MsgDelegate':
                     if (this.wallets[message.delegator_address]) {
                         await this.logOtherFee(
@@ -338,7 +346,10 @@ export function Cosmos(redis, key, action, config, wallets) {
                     }
                     break
                 case '/ibc.core.client.v1.MsgUpdateClient':
-                    console.log('Skipping over MsgUpdateClient');
+                    console.log('Skipping over IBC.MsgUpdateClient');
+                    break;
+                case '/ibc.core.channel.v1.MsgAcknowledgement':
+                    console.log('Skipping over IBC.MsgAcknowledgement');
                     break;
                 case '/cosmos.authz.v1beta1.MsgGrant':
                     await this.logOtherFee('AuthZ Grant');

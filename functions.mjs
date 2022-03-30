@@ -10,7 +10,8 @@ import { groupedTransactions } from "./groupedTransactions.mjs";
 
 const THOR_TAG = 'thor'; // just thor addresses
 const RUNE_TAG = 'rune'; // anything thor related (like doge)
-const COSMOS_TAG = 'cosmos';
+const COSMOS_TAG = 'cosmos'; // chihuahua, cerberus, etc
+const TOTAL_CAP = 2000; // max transactions to download
 
 const monkiers = {};
 
@@ -194,7 +195,6 @@ export const historicalThornode = async (wallet, addAction) => {
     }
 };
 
-// previously: (network, wallet, pagination, direction, height, addCosmosTx, setCount, setHeight)
 export const cosmos = async (network, wallet, pagination, limit, direction, addCosmosTx, setCount) => {
     const baseUrl = process.env[network + '_URL'];
     // the network variable must be one of the recognized options specified in the environment with "_URL" and "_LIMIT"
@@ -206,26 +206,17 @@ export const cosmos = async (network, wallet, pagination, limit, direction, addC
         .replace('{DIRECTION}', direction)
         .replace('{WALLET}', wallet)
         .replace('{OFFSET}', String(pagination * limit))
-        // .replace('{HEIGHT}', String(height))
     ;
     console.log('url:', url);
     await fetch(url).then((response) => {
         // console.log('response: fetch successful');
         return response.json();
     }).then(async (data) => {
-        // if (Array.isArray(data)) {
-        //     await setHeight(data[0].data.height);
-        //     await setCount(data.length + pagination * limit);
-        //     for (const tx of data) {
-        //         await addCosmosTx(tx.data);
-        //     }
-        // } else {
-            await setCount(data.pagination?.total);
-            for (const tx of data.tx_responses) {
-                tx.chain = network;
-                await addCosmosTx(tx);
-            }
-        // }
+        await setCount(data.pagination?.total);
+        for (const tx of data.tx_responses) {
+            tx.chain = network;
+            await addCosmosTx(tx);
+        }
     }).catch((error) => {
         throw error;
     });
@@ -281,7 +272,6 @@ export const normalizeAddresses = (addresses) => {
     };
     const errors  = [];
 
-    loop:
     for (let [type, address] of Object.entries(addresses)) {
         address = String(address);
 
@@ -296,7 +286,7 @@ export const normalizeAddresses = (addresses) => {
                 address = address.toLowerCase();
                 if (/^0x[a-f0-9]{40}$/.test(address)) {
                     wallets.add(address, RUNE_TAG);
-                    continue loop;
+                    continue;
                 }
                 break;
             case type.startsWith('btc'):
@@ -304,25 +294,25 @@ export const normalizeAddresses = (addresses) => {
                 // segwit /^bc1[a-z0-9]{38,90}$/
                 if (/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address)) {
                     wallets.add(address, RUNE_TAG);
-                    continue loop;
+                    continue;
                 }
                 address = address.toLowerCase();
                 if (/^bc1[a-z0-9]{38,90}$/.test(address)) {
                     wallets.add(address, RUNE_TAG);
-                    continue loop;
+                    continue;
                 }
                 break;
             case type.startsWith('bch'):
                 // legacy /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/
                 // normal /^(bitcoincash:)?[qp][a-z0-9]{38,90}$/
                 if (/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address)) {
-                    wwallets.add(address, RUNE_TAG);
-                    continue loop;
+                    wallets.add(address, RUNE_TAG);
+                    continue;
                 }
                 address = address.toLowerCase();
                 if (/^(bitcoincash:)?[qp][a-z0-9]{38,90}$/.test(address)) {
                     wallets.add(address, RUNE_TAG);
-                    continue loop;
+                    continue;
                 }
                 break;
             case type.startsWith('bnb'):
@@ -330,7 +320,7 @@ export const normalizeAddresses = (addresses) => {
                 address = address.toLowerCase();
                 if (/^bnb[a-z0-9]{38,90}$/.test(address)) {
                     wallets.add(address, RUNE_TAG);
-                    continue loop;
+                    continue;
                 }
                 break;
             case type.startsWith('ltc'):
@@ -338,12 +328,12 @@ export const normalizeAddresses = (addresses) => {
                 // lower  /^ltc[a-z0-9]{38,90}$/
                 if (/^[LM3][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address)) {
                     wallets.add(address, RUNE_TAG);
-                    continue loop;
+                    continue;
                 }
                 address = address.toLowerCase();
                 if (/^ltc[a-z0-9]{38,90}$/.test(address)) {
                     wallets.add(address, RUNE_TAG);
-                    continue loop;
+                    continue;
                 }
                 break;
             case type.startsWith('thor'):
@@ -351,14 +341,14 @@ export const normalizeAddresses = (addresses) => {
                 address = address.toLowerCase();
                 if (/^thor[a-z0-9]{38,90}$/.test(address)) {
                     wallets.add(address, RUNE_TAG, THOR_TAG);
-                    continue loop;
+                    continue;
                 }
                 break;
             case type.startsWith('doge'):
                 // doge /^D[5-9A-HJ-NP-U][1-9A-HJ-NP-Za-km-z]{25,34}$/
                 if (/^D[5-9A-HJ-NP-U][1-9A-HJ-NP-Za-km-z]{25,34}$/.test(address)) {
                     wallets.add(address, RUNE_TAG);
-                    continue loop;
+                    continue;
                 }
                 break;
             case type.startsWith('chihuahua'):
@@ -366,7 +356,7 @@ export const normalizeAddresses = (addresses) => {
                 address = address.toLowerCase();
                 if (/^chihuahua[a-z0-9]{38,90}$/.test(address)) {
                     wallets.add(address, COSMOS_TAG);
-                    continue loop;
+                    continue;
                 }
                 break;
             case type.startsWith('cerberus'):
@@ -374,12 +364,12 @@ export const normalizeAddresses = (addresses) => {
                 address = address.toLowerCase();
                 if (/^cerberus[a-z0-9]{38,90}$/.test(address)) {
                     wallets.add(address, COSMOS_TAG);
-                    continue loop;
+                    continue;
                 }
                 break;
             case type.startsWith('opt-'):
                 // disregard options
-                continue loop;
+                continue;
         }
         errors.push(address);
     }
@@ -442,14 +432,19 @@ export const normalizeConfig = (options) => {
 
 // download the results, and calculate the report
 export const runProcess = async (redis, key, wallets, config) => {
+    await runDownload(redis, key, wallets);
+    await runCalculate(redis, key, wallets, config);
+}
+
+export const runDownload = async (redis, key, wallets) => {
     // 1 phase for processing, 1 phase for midgard, 2 phases per thor address, and 2 phases per cosmos address
-    const total = 1 + (wallets[RUNE_TAG]?.length > 0 ? 1 : 0) + (2 * (wallets[THOR_TAG]?.length ?? 0)) + (2 * (wallets[COSMOS_TAG]?.length ?? 0));
+    const totalPhases = 1 + (wallets[RUNE_TAG]?.length > 0 ? 1 : 0) + (2 * (wallets[THOR_TAG]?.length ?? 0)) + (2 * (wallets[COSMOS_TAG]?.length ?? 0));
     let phase = 0;
     let firstAction = true;
+    let theTotal = 0;
     let theCount = -1;
     let thePage  = 0;
     let theLimit = -1;
-    // let theHeight = 0;
 
     const addAction = async (action) => {
         // console.log('adding-action');
@@ -476,22 +471,10 @@ export const runProcess = async (redis, key, wallets, config) => {
         theCount = count;
         // console.log('setting-count');
         await redis.set(key + '_count', count);
-        await redis.set(key + '_status', 'Phase ' + phase + ' of ' + total + ', Downloading ' + Math.min((thePage + 1) * theLimit, count) + ' of ' + count);
+        await redis.set(key + '_status', 'Phase ' + phase + ' of ' + totalPhases + ', Downloading ' + Math.min((thePage + 1) * theLimit, count) + ' of ' + count);
         await redis.expire(key + '_count', process.env.TTL);
         await redis.expire(key + '_status', process.env.TTL);
     };
-
-    // const setHeight = async (height) => {
-    //     // only increment the height, so we move forward
-    //     if (height > theHeight) {
-    //         theHeight = height;
-    //         // console.log('setting-height');
-    //         await redis.set(key + '_height', height);
-    //         await redis.set(key + '_status', 'Phase ' + phase + ' of 4, Downloading from height: ' + height);
-    //         await redis.expire(key + '_height', process.env.TTL);
-    //         await redis.expire(key + '_status', process.env.TTL);
-    //     }
-    // };
 
     // console.log('starting to run the process');
 
@@ -514,17 +497,22 @@ export const runProcess = async (redis, key, wallets, config) => {
     await redis.expire(key + '_status', process.env.TTL);
 
     // phase 1, download ThorChain transactions via Midgard
-    if (wallets[RUNE_TAG]) {
+    if (wallets[RUNE_TAG] && theTotal < TOTAL_CAP) {
         phase++;
         theLimit = process.env.MIDGARD_LIMIT;
         do {
             await midgard(wallets[RUNE_TAG], thePage, addAction, setCount);
             thePage++;
+            theTotal += theLimit;
+            if (theTotal >= TOTAL_CAP) {
+                break;
+            }
         } while (thePage * theLimit < theCount);
     }
 
     // phase 2, download ThorChain to ThorChain "Send" transactions, from a separate API
-    if (wallets[THOR_TAG]) {
+    if (wallets[THOR_TAG] && theTotal < TOTAL_CAP) {
+        secondPhase:
         for (const wallet of wallets[THOR_TAG]) {
             // we have to search for sent/receive transactions separately
             for (const direction of ['sender', 'recipient']) {
@@ -535,6 +523,10 @@ export const runProcess = async (redis, key, wallets, config) => {
                 do {
                     await thornode(wallet, thePage, direction, addAction, setCount);
                     thePage++;
+                    theTotal += theLimit;
+                    if (theTotal >= TOTAL_CAP) {
+                        break secondPhase;
+                    }
                 } while (thePage * theLimit < theCount);
             }
 
@@ -545,27 +537,43 @@ export const runProcess = async (redis, key, wallets, config) => {
     }
 
     // phase 3, download transactions from each cosmos chain
-    if (wallets[COSMOS_TAG]) {
+    if (wallets[COSMOS_TAG] && theTotal < TOTAL_CAP) {
+        thirdPhase:
         for (const wallet of wallets[COSMOS_TAG]) {
             const network = wallet.split('1')[0]; // "chihuahua1sv0..." into just "chihuahua"
             theLimit   = process.env[network + '_LIMIT'];
             for (const direction of ['message.sender', 'transfer.recipient']) {
+                // TODO redesign, scope requests to "message.action", group them logically
+                // IE: MsgCreateValidator and if there is one, look for MsgEditValidator
+                // or MsgWithdrawValidatorCommission
+                // MsgRevoke is only important if they first did MsgGrant
+                // MsgExec is only important if they want compound transactions.
+                // MsgUndelegate and MsgBeginRedelegate need a MsgDelegate
+                // for MsgSend and MsgMultiSend, may need current "direction" setup.
+                // the couple of transaction types that aren't used can be ignored..
+                // should be able to have several concurrent channels to loop over.
+                // still need to handle multiple pages..
                 phase++;
                 theCount = -1;
                 thePage = 0;
-                // theHeight = 0;
                 do {
-                    // previously: (network, wallet, thePage, theLimit, direction, theHeight, addCosmosTx, setCount, setHeight);
                     await cosmos(network, wallet, thePage, theLimit, direction, addCosmosTx, setCount);
                     thePage++;
-                } while (thePage * theLimit < theCount /* 1k limit */ && thePage < 10); // TODO resolve performance issues, and remove cap
+                    theTotal += theLimit;
+                    if (theTotal >= TOTAL_CAP) {
+                        break thirdPhase;
+                    }
+                } while (thePage * theLimit < theCount);
             }
         }
     }
+}
 
-    theCount = await redis.zCard(key + '_action');
+export const runCalculate = async (redis, key, wallets, config) => {
+
+    const theCount = await redis.zCard(key + '_action');
     await redis.set(key + '_count', theCount);
-    await redis.set(key + '_status', 'Phase ' + total + ' of ' + total + ', Now Processing ' + theCount + ' Transactions');
+    await redis.set(key + '_status', 'Final Phase, Now Processing ' + theCount + ' Transactions');
     await redis.expire(key + '_count', process.env.TTL);
     await redis.expire(key + '_status', process.env.TTL);
     let rowNumber = 0;
@@ -578,7 +586,7 @@ export const runProcess = async (redis, key, wallets, config) => {
 
     for (const row of await redis.zRange(key + '_action', 0, 9999999999999)) {
         rowNumber++;
-        await redis.set(key + '_status', 'Phase ' + total + ' of ' + total + ', Processing ' + rowNumber + ' of ' + theCount);
+        await redis.set(key + '_status', 'Final Phase, Processing ' + rowNumber + ' of ' + theCount);
         await redis.expire(key + '_status', process.env.TTL);
 
         const action = JSON.parse(row);

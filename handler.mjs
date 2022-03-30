@@ -131,7 +131,7 @@ export const fetchReport = async (event) => {
             // https://cointracking.info/import/import_csv/
             case 'cointracking':
                 keys  = ['type', 'buyAmount', 'buyCurr', 'sellAmount', 'sellCurr', 'fee', 'feeCurr', 'exchange', 'tradeGroup', 'comment', 'date', 'txID'];
-                base  = { exchange: 'ThorChain', tradeGroup: group };
+                base  = { exchange: 'thor', tradeGroup: group };
                 lines = ['Type,Buy Amount,Buy Currency,Sell Amount,Sell Currency,Fee,Fee Currency,Exchange,Trade-Group,Comment,Date,Tx-ID'];
                 // DD.MM.YYYY date format
                 fix   = {
@@ -196,8 +196,8 @@ export const fetchReport = async (event) => {
                             record.quoteCurr   = record.buyCurr;
                             record.quoteAmount = record.buyAmount;
                             record.type = 'sell'; // sell indicates it will trigger capital gains, which we want
-                            record.from = 'ThorChain';
-                            record.to = 'ThorChain';
+                            record.from = 'thor';
+                            record.to = 'thor';
                         } else {
                             // only trades have both buy and sell, so in this case, base is whatever we have
                             record.baseCurr   = record.buyCurr   ?? record.sellCurr;
@@ -205,19 +205,19 @@ export const fetchReport = async (event) => {
                             switch (record.type) {
                                 case 'Deposit':
                                     record.type = 'transfer-in';
-                                    record.to = 'ThorChain';
+                                    record.to = 'thor';
                                     break;
                                 case 'Withdrawal':
                                     record.type = 'transfer-out';
-                                    record.from = 'ThorChain';
+                                    record.from = 'thor';
                                     break;
                                 case 'Staking':
                                     record.type = 'staking';
-                                    record.to = 'ThorChain';
+                                    record.to = 'thor';
                                     break;
                                 case 'Lost':
                                     record.type = 'lost';
-                                    record.from = 'ThorChain';
+                                    record.from = 'thor';
                                     break;
                             }
                         }

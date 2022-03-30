@@ -29,4 +29,5 @@ cerberus_URL='https://lcd-cerberus.cosmostation.io/cosmos/tx/v1beta1/txs?paginat
 cerberus_NODES='https://lcd-cerberus.cosmostation.io/cosmos/staking/v1beta1/validators?pagination.limit=500' \
 PORT=3001 \
 TTL=600 \
-/usr/bin/env node --trace-warnings --unhandled-rejections=strict server.mjs 2>&1 | tee -a output-test.log
+/usr/bin/env node server.mjs 2>&1 | tee -a output-test.log
+#/usr/bin/env node --trace-warnings --unhandled-rejections=strict server.mjs 2>&1 | tee -a output-test.log

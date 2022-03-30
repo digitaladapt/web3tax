@@ -162,6 +162,7 @@ export function Cosmos(redis, key, action, config, wallets) {
             // IE: re-stake, if user is getting their report, no fee (paid by bot), and then only if they want compounding txs..
             switch (message['@type']) {
                 case '/cosmos.distribution.v1beta1.MsgWithdrawValidatorCommission':
+                    // process.stdout.write('c');
                     let commission = getEvent(events, 'withdraw_commission', 'amount');
                     await this.calc.storeRecord({
                         type:      'Other Income',
@@ -176,6 +177,7 @@ export function Cosmos(redis, key, action, config, wallets) {
                     });
                     break;
                 case '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward':
+                    // process.stdout.write('r');
                     if (this.wallets[message.delegator_address]) {
                         let rewards = getEvent(events, 'withdraw_rewards', 'amount');
                         delegatorReward.count++;
@@ -185,6 +187,7 @@ export function Cosmos(redis, key, action, config, wallets) {
                     }
                     break;
                 case '/cosmos.staking.v1beta1.MsgBeginRedelegate':
+                    // process.stdout.write('m');
                     await this.logOtherFee(
                         'Redelegated ' + assetAmount(message.amount) + ' ' + token(message.amount) + ' from "'
                         + getNode(this.action.chain, message.validator_src_address) + '" to "'
@@ -192,9 +195,11 @@ export function Cosmos(redis, key, action, config, wallets) {
                     );
                     break;
                 case '/cosmos.gov.v1beta1.MsgVote':
+                    // process.stdout.write('v');
                     await this.logOtherFee('Voted "' + formatVote(message.option) + '" on Prop #' + message.proposal_id);
                     break;
                 case '/cosmos.staking.v1beta1.MsgUndelegate':
+                    // process.stdout.write('u');
                     if (this.wallets[message.delegator_address]) {
                         await this.logOtherFee(
                             'Undelegated ' + assetAmount(message.amount) + ' ' + token(message.amount) + ' from "'
@@ -203,6 +208,7 @@ export function Cosmos(redis, key, action, config, wallets) {
                     }
                     break;
                 case '/cosmos.staking.v1beta1.MsgDelegate':
+                    // process.stdout.write('d');
                     if (this.wallets[message.delegator_address]) {
                         await this.logOtherFee(
                             'Delegated ' + assetAmount(message.amount) + ' ' + token(message.amount) + ' to "'
@@ -211,6 +217,7 @@ export function Cosmos(redis, key, action, config, wallets) {
                     }
                     break;
                 case '/cosmos.bank.v1beta1.MsgSend':
+                    // process.stdout.write('s');
                     // determine if this is either send and/or receive
                     if (this.wallets[message.from_address]) {
                         await this.calc.storeRecord({
@@ -237,6 +244,7 @@ export function Cosmos(redis, key, action, config, wallets) {
                     }
                     break;
                 case '/cosmos.bank.v1beta1.MsgMultiSend':
+                    // process.stdout.write('S');
                     const sender = {};
                     const recipient = {};
                     for (const input of message.inputs) {
@@ -281,6 +289,7 @@ export function Cosmos(redis, key, action, config, wallets) {
                     }
                     break;
                 case '/ibc.applications.transfer.v1.MsgTransfer':
+                    // process.stdout.write('t');
                     // IBC "Send" Message
                     if (this.wallets[message.sender]) {
                         await this.calc.storeRecord({
@@ -309,12 +318,15 @@ export function Cosmos(redis, key, action, config, wallets) {
                     }
                     break;
                 case '/cosmos.staking.v1beta1.MsgCreateValidator':
+                    // process.stdout.write('n');
                     await this.logOtherFee('Created Validator', 'Other Expense');
                     break;
                 case '/cosmos.staking.v1beta1.MsgEditValidator':
+                    // process.stdout.write('e');
                     await this.logOtherFee('Edited Validator', 'Other Expense');
                     break;
                 case '/ibc.core.channel.v1.MsgRecvPacket':
+                    // process.stdout.write('p');
                     // IBC "Receive" Message, has packet.data (in base64) containing: amount, denom, sender, and receiver
                     const buff = Buffer.from(message.packet.data, 'base64');
                     const json = buff.toString('ascii');
@@ -352,12 +364,15 @@ export function Cosmos(redis, key, action, config, wallets) {
                     console.log('Skipping over IBC.MsgAcknowledgement');
                     break;
                 case '/cosmos.authz.v1beta1.MsgGrant':
+                    // process.stdout.write('g');
                     await this.logOtherFee('AuthZ Grant');
                     break;
                 case '/cosmos.authz.v1beta1.MsgRevoke':
+                    // process.stdout.write('k');
                     await this.logOtherFee('AuthZ Revoke');
                     break;
                 case '/cosmos.authz.v1beta1.MsgExec':
+                    // process.stdout.write('x');
                     if (this.wallets[message.grantee]) {
                         // grantee is the authorized bot, since that's our wallet, we just want to report the expense
                         await this.logOtherFee('AuthZ Bot Fee', 'Other Expense');

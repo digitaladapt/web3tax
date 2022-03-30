@@ -215,6 +215,8 @@ export const cosmos = async (network, wallet, pagination, limit, direction, addC
         await setCount(data.pagination?.total);
         for (const tx of data.tx_responses) {
             tx.chain = network;
+            tx.raw_log = null; // not needed
+            tx.events = null; // not needed
             await addCosmosTx(tx);
         }
     }).catch((error) => {
@@ -499,12 +501,13 @@ export const runDownload = async (redis, key, wallets) => {
     // phase 1, download ThorChain transactions via Midgard
     if (wallets[RUNE_TAG] && theTotal < TOTAL_CAP) {
         phase++;
-        theLimit = process.env.MIDGARD_LIMIT;
+        theLimit = Number(process.env.MIDGARD_LIMIT);
         do {
             await midgard(wallets[RUNE_TAG], thePage, addAction, setCount);
             thePage++;
             theTotal += theLimit;
             if (theTotal >= TOTAL_CAP) {
+                console.log('limited midgard|' + Date.now() + '|' + key);
                 break;
             }
         } while (thePage * theLimit < theCount);
@@ -519,12 +522,13 @@ export const runDownload = async (redis, key, wallets) => {
                 phase++;
                 theCount = -1;
                 thePage = 0;
-                theLimit = process.env.THORNODE_LIMIT;
+                theLimit = Number(process.env.THORNODE_LIMIT);
                 do {
                     await thornode(wallet, thePage, direction, addAction, setCount);
                     thePage++;
                     theTotal += theLimit;
                     if (theTotal >= TOTAL_CAP) {
+                        console.log('limited thornode|' + Date.now() + '|' + key);
                         break secondPhase;
                     }
                 } while (thePage * theLimit < theCount);
@@ -541,7 +545,7 @@ export const runDownload = async (redis, key, wallets) => {
         thirdPhase:
         for (const wallet of wallets[COSMOS_TAG]) {
             const network = wallet.split('1')[0]; // "chihuahua1sv0..." into just "chihuahua"
-            theLimit   = process.env[network + '_LIMIT'];
+            theLimit   = Number(process.env[network + '_LIMIT']);
             for (const direction of ['message.sender', 'transfer.recipient']) {
                 // TODO redesign, scope requests to "message.action", group them logically
                 // IE: MsgCreateValidator and if there is one, look for MsgEditValidator
@@ -561,6 +565,7 @@ export const runDownload = async (redis, key, wallets) => {
                     thePage++;
                     theTotal += theLimit;
                     if (theTotal >= TOTAL_CAP) {
+                        console.log('limited cosmos|' + Date.now() + '|' + key);
                         break thirdPhase;
                     }
                 } while (thePage * theLimit < theCount);
@@ -570,7 +575,6 @@ export const runDownload = async (redis, key, wallets) => {
 }
 
 export const runCalculate = async (redis, key, wallets, config) => {
-
     const theCount = await redis.zCard(key + '_action');
     await redis.set(key + '_count', theCount);
     await redis.set(key + '_status', 'Final Phase, Now Processing ' + theCount + ' Transactions');
@@ -585,6 +589,7 @@ export const runCalculate = async (redis, key, wallets, config) => {
     // console.log('--------------');
 
     for (const row of await redis.zRange(key + '_action', 0, 9999999999999)) {
+        // process.stdout.write('^');
         rowNumber++;
         await redis.set(key + '_status', 'Final Phase, Processing ' + rowNumber + ' of ' + theCount);
         await redis.expire(key + '_status', process.env.TTL);
@@ -592,10 +597,13 @@ export const runCalculate = async (redis, key, wallets, config) => {
         const action = JSON.parse(row);
 
         if (action.isCosmosTx) {
+            // process.stdout.write('{');
             const cosmos = new Cosmos(redis, key, action, config, wallets[COSMOS_TAG]);
             await cosmos.logTx();
+            // process.stdout.write('}');
             continue;
         }
+        // process.stdout.write('<');
 
         // NOTES:
         // for each trade we'll need to have
@@ -663,6 +671,7 @@ export const runCalculate = async (redis, key, wallets, config) => {
         }
 
         // console.log('--------------');
+        // process.stdout.write('>');
     }
 
     await redis.set(key + '_status', 'Completed');

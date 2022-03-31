@@ -111,33 +111,34 @@ const discordNow = async () => {
 // gets transactions for specific page for the given wallet list: (["thor1..", "bnb1.."], 3)
 // pagination starts with 0 (zero)
 // addAction(action) and setCount(count) are callbacks
-export const midgard = async (wallets, pagination, addAction, setCount) => {
+export const midgard = async (wallets, pagination, addAction, setTotal) => {
     const url = process.env.MIDGARD_URL.replace('{WALLETS}', wallets.join(',')).replace('{OFFSET}', String(pagination * process.env.MIDGARD_LIMIT));
-    // console.log('url:', url);
+    console.log('url: ' + url);
     await fetch(url).then((response) => {
         // console.log('response: fetch successful');
         return response.json();
     }).then(async (data) => {
-        await setCount(data.count);
+        await setTotal('midgard', data.count);
         for (const action of data.actions) {
             await addAction(action);
         }
+        return data.count;
     }).catch((error) => {
         throw error;
     });
 };
 
 // gets sent to/from transactions
-export const thornode = async (wallet, pagination, direction, addAction, setCount) => {
+export const thornode = async (wallet, pagination, direction, addAction, setTotal) => {
     const url = process.env.THORNODE_URL.replace('{DIRECTION}', direction).replace('{WALLET}', wallet).replace('{PAGE}', String(pagination + 1));
     const inOut = direction === 'recipient' ? 'in' : 'out';
-    // console.log('url:', url);
+    console.log('url: ' + url);
     await fetch(url).then((response) => {
         // console.log('response: fetch successful');
         return response.json();
     }).then(async (data) => {
         // console.log(data);
-        await setCount(Number(data.total_count));
+        await setTotal(wallet + '-' + direction, Number(data.total_count));
         if (data.txs) {
             for (const tx of data.txs) {
                 const action = {
@@ -159,9 +160,10 @@ export const thornode = async (wallet, pagination, direction, addAction, setCoun
                     }],
                     txID: tx.txhash,
                 }];
-                addAction(action);
+                await addAction(action);
             }
         }
+        return Number(data.total_count);
     }).catch((error) => {
         throw error;
     });
@@ -190,12 +192,12 @@ export const historicalThornode = async (wallet, addAction) => {
                 }],
                 txID: tx.txhash,
             }];
-            addAction(action);
+            await addAction(action);
         }
     }
 };
 
-export const cosmos = async (network, wallet, pagination, limit, direction, addCosmosTx, setCount) => {
+export const cosmos = async (network, wallet, pagination, limit, action, addCosmosTx, setTotal) => {
     const baseUrl = process.env[network + '_URL'];
     // the network variable must be one of the recognized options specified in the environment with "_URL" and "_LIMIT"
     // suffixed versions defined, expectation is to use the address prefix for the given blockchain as the network
@@ -203,22 +205,23 @@ export const cosmos = async (network, wallet, pagination, limit, direction, addC
         throw 'Missing required configuration for given cosmos network: "' + network + '".';
     }
     const url = baseUrl
-        .replace('{DIRECTION}', direction)
+        .replace('{ACTION}', action)
         .replace('{WALLET}', wallet)
         .replace('{OFFSET}', String(pagination * limit))
     ;
-    console.log('url:', url);
+    console.log('url: ' + url);
     await fetch(url).then((response) => {
         // console.log('response: fetch successful');
         return response.json();
     }).then(async (data) => {
-        await setCount(data.pagination?.total);
+        await setTotal(wallet + '-' + action, Number(data.pagination.total));
         for (const tx of data.tx_responses) {
             tx.chain = network;
             tx.raw_log = null; // not needed
             tx.events = null; // not needed
             await addCosmosTx(tx);
         }
+        return Number(data.pagination.total);
     }).catch((error) => {
         throw error;
     });
@@ -434,22 +437,53 @@ export const normalizeConfig = (options) => {
 
 // download the results, and calculate the report
 export const runProcess = async (redis, key, wallets, config) => {
-    await runDownload(redis, key, wallets);
+    await runDownload(redis, key, wallets, config);
     await runCalculate(redis, key, wallets, config);
 }
 
-export const runDownload = async (redis, key, wallets) => {
-    // 1 phase for processing, 1 phase for midgard, 2 phases per thor address, and 2 phases per cosmos address
-    const totalPhases = 1 + (wallets[RUNE_TAG]?.length > 0 ? 1 : 0) + (2 * (wallets[THOR_TAG]?.length ?? 0)) + (2 * (wallets[COSMOS_TAG]?.length ?? 0));
-    let phase = 0;
+export const runDownload = async (redis, key, wallets, config) => {
+    const promises = [];
+    let downloaded =  0;
+    let total = {};
+    let grand = 1;
     let firstAction = true;
-    let theTotal = 0;
-    let theCount = -1;
-    let thePage  = 0;
-    let theLimit = -1;
 
+    const cosmosGroups = [
+        // on-chain sending
+        ['/cosmos.bank.v1beta1.MsgSend'],
+        ['/cosmos.bank.v1beta1.MsgMultiSend'],
+
+        // cross-chain sending
+        ['/ibc.applications.transfer.v1.MsgTransfer'],
+        ['/ibc.core.channel.v1.MsgRecvPacket'],
+
+        // delegation related
+        ['/cosmos.staking.v1beta1.MsgDelegate', [
+            '/cosmos.staking.v1beta1.MsgUndelegate',
+            '/cosmos.gov.v1beta1.MsgVote',
+            '/cosmos.staking.v1beta1.MsgBeginRedelegate',
+            '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward',
+        ]],
+
+        // validator related, genesis validators do not appear to have a create transaction
+        ['/cosmos.staking.v1beta1.MsgCreateValidator'],
+        ['/cosmos.staking.v1beta1.MsgEditValidator'],
+        ['/cosmos.distribution.v1beta1.MsgWithdrawValidatorCommission'],
+
+        // authz related, only include MsgExec if desired
+        ['/cosmos.authz.v1beta1.MsgGrant', [
+            '/cosmos.authz.v1beta1.MsgRevoke',
+            ...(config.includeAuthZ ? ['/cosmos.authz.v1beta1.MsgExec'] : []),
+        ]],
+    ];
+
+    // kick off each process as async job, then wait until all have completed, then return
     const addAction = async (action) => {
         // console.log('adding-action');
+        downloaded++;
+        await redis.set(key + '_status', 'Downloading ' + downloaded+ ' of ' + grand);
+        await redis.expire(key + '_status', process.env.TTL);
+
         await redis.zAdd(key + '_action', {score: action.date.slice(0, -6), value: JSON.stringify(action)});
         if (firstAction) {
             firstAction = false;
@@ -461,6 +495,10 @@ export const runDownload = async (redis, key, wallets) => {
     const addCosmosTx = async (tx) => {
         // console.log('adding-cosmos-tx');
         tx.isCosmosTx = true;
+        downloaded++;
+        await redis.set(key + '_status', 'Downloading ' + downloaded+ ' of ' + grand);
+        await redis.expire(key + '_status', process.env.TTL);
+
         await redis.zAdd(key + '_action', {score: String((new Date(tx.timestamp)).getTime()), value: JSON.stringify(tx)});
         if (firstAction) {
             firstAction = false;
@@ -469,109 +507,81 @@ export const runDownload = async (redis, key, wallets) => {
         }
     };
 
-    const setCount = async (count) => {
-        theCount = count;
-        // console.log('setting-count');
-        await redis.set(key + '_count', count);
-        await redis.set(key + '_status', 'Phase ' + phase + ' of ' + totalPhases + ', Downloading ' + Math.min((thePage + 1) * theLimit, count) + ' of ' + count);
-        await redis.expire(key + '_count', process.env.TTL);
-        await redis.expire(key + '_status', process.env.TTL);
+    const setTotal = (id, count) => {
+        // calculate updated grand total
+        let prev = total[id] ?? 0;
+        total[id] = count;
+        grand += count - prev;
+        console.log('Downloading ' + downloaded + ' of ' + grand);
     };
-
-    // console.log('starting to run the process');
-
-    // TODO split wallets into groups based on what cosmos chain they are related to (atom, huahua, lum, rune (or related), etc.)
-    // I think we might want to do this in address normalization instead, have wallets be a object, could tag
-
-    // TODO runProcess() revised design:
-    // loop over wallets by type, switch by type to kick off the corresponding function, (most could be the same with diff
-    // config passed (rpc endpoint)).. rune would be the odd ball, but that's fine.
-    //
-    // each sub-process would be async, and we'd do a wait all at the end..
-    // simple array of promises, and a Promise.all(promises).then().catch().. after the loop..
-    // each element should (ideally) gracefully handle failed API calls, and try a second time (maybe alt rpc would be ideal)..
-    // since rune uses two apis, it should kick off two promises, so they can run concurrently.
-    //
-    // would like a way foreach running promise to indicate it's progress, something simple like x of y completed..
-    // could combine that with n number of active operations..
 
     await redis.set(key + '_status', 'Starting to Download Transactions');
     await redis.expire(key + '_status', process.env.TTL);
 
-    // phase 1, download ThorChain transactions via Midgard
-    if (wallets[RUNE_TAG] && theTotal < TOTAL_CAP) {
-        phase++;
-        theLimit = Number(process.env.MIDGARD_LIMIT);
-        do {
-            await midgard(wallets[RUNE_TAG], thePage, addAction, setCount);
-            thePage++;
-            theTotal += theLimit;
-            if (theTotal >= TOTAL_CAP) {
-                console.log('limited midgard|' + Date.now() + '|' + key);
-                break;
-            }
-        } while (thePage * theLimit < theCount);
+    // download ThorChain transactions via Midgard
+    if (wallets[RUNE_TAG]) {
+        const midgardLoop = async () => {
+            let page = 0;
+            let count = -1;
+            do {
+                count = await midgard(wallets[RUNE_TAG], page, addAction, setTotal);
+                page++;
+            } while (page * process.env.MIDGARD_LIMIT < count);
+        };
+        promises.push(midgardLoop());
     }
 
-    // phase 2, download ThorChain to ThorChain "Send" transactions, from a separate API
-    if (wallets[THOR_TAG] && theTotal < TOTAL_CAP) {
-        secondPhase:
+    // download ThorChain to ThorChain "Send" transactions, from a separate API
+    if (wallets[THOR_TAG]) {
+        const thornodeLoop = async (wallet, direction) => {
+            let page = 0;
+            let count = -1;
+            do {
+                count = await thornode(wallet, page, direction, addAction, setTotal);
+                page++;
+            } while (page * process.env.THORNODE_LIMIT < count);
+        };
+
         for (const wallet of wallets[THOR_TAG]) {
             // we have to search for sent/receive transactions separately
             for (const direction of ['sender', 'recipient']) {
-                phase++;
-                theCount = -1;
-                thePage = 0;
-                theLimit = Number(process.env.THORNODE_LIMIT);
-                do {
-                    await thornode(wallet, thePage, direction, addAction, setCount);
-                    thePage++;
-                    theTotal += theLimit;
-                    if (theTotal >= TOTAL_CAP) {
-                        console.log('limited thornode|' + Date.now() + '|' + key);
-                        break secondPhase;
-                    }
-                } while (thePage * theLimit < theCount);
+                promises.push(thornodeLoop(wallet, direction));
             }
 
             // throw in any pre-fork (March 2022) transactions (rune wallet to rune wallet)
             // remember: these both current and historical thornode transactions include synthetics
-            await historicalThornode(wallet, addAction);
+            promises.push(historicalThornode(wallet, addAction));
         }
     }
 
-    // phase 3, download transactions from each cosmos chain
-    if (wallets[COSMOS_TAG] && theTotal < TOTAL_CAP) {
-        thirdPhase:
-        for (const wallet of wallets[COSMOS_TAG]) {
+    // download transactions from each cosmos chain
+    if (wallets[COSMOS_TAG]) {
+        const cosmosLoop = async (wallet, first, additional) => {
             const network = wallet.split('1')[0]; // "chihuahua1sv0..." into just "chihuahua"
-            theLimit   = Number(process.env[network + '_LIMIT']);
-            for (const direction of ['message.sender', 'transfer.recipient']) {
-                // TODO redesign, scope requests to "message.action", group them logically
-                // IE: MsgCreateValidator and if there is one, look for MsgEditValidator
-                // or MsgWithdrawValidatorCommission
-                // MsgRevoke is only important if they first did MsgGrant
-                // MsgExec is only important if they want compound transactions.
-                // MsgUndelegate and MsgBeginRedelegate need a MsgDelegate
-                // for MsgSend and MsgMultiSend, may need current "direction" setup.
-                // the couple of transaction types that aren't used can be ignored..
-                // should be able to have several concurrent channels to loop over.
-                // still need to handle multiple pages..
-                phase++;
-                theCount = -1;
-                thePage = 0;
-                do {
-                    await cosmos(network, wallet, thePage, theLimit, direction, addCosmosTx, setCount);
-                    thePage++;
-                    theTotal += theLimit;
-                    if (theTotal >= TOTAL_CAP) {
-                        console.log('limited cosmos|' + Date.now() + '|' + key);
-                        break thirdPhase;
-                    }
-                } while (thePage * theLimit < theCount);
+            const limit = Number(process.env[network + '_LIMIT']);
+            let page = 0;
+            let count = -1;
+            do {
+                count = await cosmos(network, wallet, page, limit, first, addCosmosTx, setTotal);
+            } while (page * limit < count);
+
+            if (count > 0 && additional && additional.length > 0) {
+                for (const next of additional) {
+                    promises.push(cosmosLoop(wallet, next));
+                }
+            }
+        };
+
+        // TODO from here, need to handle direction, and verify that this stuff is working
+        // TODO because it doesn't seem like I'm getting all the transactions...
+        for (const wallet of wallets[COSMOS_TAG]) {
+            for (const [first, additional] of cosmosGroups) {
+                promises.push(cosmosLoop(wallet, first, additional));
             }
         }
     }
+
+    await Promise.all(promises);
 }
 
 export const runCalculate = async (redis, key, wallets, config) => {

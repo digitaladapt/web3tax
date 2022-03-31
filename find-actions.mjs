@@ -13,23 +13,33 @@ const startHeight = 241327;
 let height = startHeight;
 let url;
 const known = {
-    '/cosmos.distribution.v1beta1.MsgWithdrawValidatorCommission': true,
-    '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward': true,
-    '/cosmos.staking.v1beta1.MsgBeginRedelegate': true,
-    '/cosmos.gov.v1beta1.MsgVote': true,
+    // moving assets on chain
     '/cosmos.bank.v1beta1.MsgSend': true,
     '/cosmos.bank.v1beta1.MsgMultiSend': true,
+
+    // moving assets across chains
     '/ibc.applications.transfer.v1.MsgTransfer': true,
-    '/cosmos.staking.v1beta1.MsgCreateValidator': true,
-    '/cosmos.staking.v1beta1.MsgEditValidator': true,
     '/ibc.core.channel.v1.MsgRecvPacket': true,
-    '/ibc.core.client.v1.MsgUpdateClient': true,
-    '/cosmos.authz.v1beta1.MsgGrant': true,
-    '/cosmos.authz.v1beta1.MsgRevoke': true,
-    '/cosmos.authz.v1beta1.MsgExec': true,
-    '/cosmos.staking.v1beta1.MsgUndelegate': true,
+    '/ibc.core.client.v1.MsgUpdateClient': true, // ignore
+    '/ibc.core.channel.v1.MsgAcknowledgement': true, // ignore
+
+    // staking specific
     '/cosmos.staking.v1beta1.MsgDelegate': true,
-    '/ibc.core.channel.v1.MsgAcknowledgement': true,
+    '/cosmos.staking.v1beta1.MsgUndelegate': true, // need MsgDelegate
+    '/cosmos.gov.v1beta1.MsgVote': true, // need MsgDelegate
+    '/cosmos.staking.v1beta1.MsgBeginRedelegate': true, // need MsgDelegate
+    '/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward': true, // need MsgDelegate
+
+    // validator specific
+    '/cosmos.staking.v1beta1.MsgCreateValidator': true,
+    '/cosmos.staking.v1beta1.MsgEditValidator': true, // need MsgCreateValidator
+    '/cosmos.distribution.v1beta1.MsgWithdrawValidatorCommission': true, // need MsgCreateValidator
+
+    // authz
+    '/cosmos.authz.v1beta1.MsgGrant': true,
+    '/cosmos.authz.v1beta1.MsgRevoke': true, // need MsgGrant
+    '/cosmos.authz.v1beta1.MsgExec': true, // need MsgGrant AND config.includeAuthz
+
     // '/': true,
 };
 do {

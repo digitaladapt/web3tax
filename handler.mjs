@@ -82,7 +82,7 @@ export const getStatus = async (event) => {
     }
 
     await redis.quit();
-    return formatError('Unknown key');
+    return formatError('Unknown key', null, { ready: -1 });
 };
 
 export const fetchReport = async (event) => {

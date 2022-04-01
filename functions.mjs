@@ -11,7 +11,7 @@ import { groupedTransactions } from "./groupedTransactions.mjs";
 const THOR_TAG = 'thor'; // just thor addresses
 const RUNE_TAG = 'rune'; // anything thor related (like doge)
 const COSMOS_TAG = 'cosmos'; // chihuahua, cerberus, etc
-const TOTAL_CAP = 2000; // max transactions to download
+const PAGE_CAP = 100; // max pages to traverse on a single subject
 
 const monkiers = {};
 
@@ -45,12 +45,16 @@ export const formatText = (content) => {
 };
 
 // consistent output formatting for api
-export const formatError = (message, statusCode) => {
+export const formatError = (message, statusCode, content) => {
+    if (typeof content !== 'object') {
+        content = {};
+    }
     return {
         statusCode: statusCode ?? 400,
         body: JSON.stringify({
             status: 'error',
-            message: message
+            message: message,
+            ...content
         })
     };
 };
@@ -113,8 +117,8 @@ const discordNow = async () => {
 // addAction(action) and setCount(count) are callbacks
 export const midgard = async (wallets, pagination, addAction, setTotal) => {
     const url = process.env.MIDGARD_URL.replace('{WALLETS}', wallets.join(',')).replace('{OFFSET}', String(pagination * process.env.MIDGARD_LIMIT));
-    console.log('url: ' + url);
-    await fetch(url).then((response) => {
+    // console.log('url: ' + url);
+    return await fetch(url).then((response) => {
         // console.log('response: fetch successful');
         return response.json();
     }).then(async (data) => {
@@ -132,8 +136,8 @@ export const midgard = async (wallets, pagination, addAction, setTotal) => {
 export const thornode = async (wallet, pagination, direction, addAction, setTotal) => {
     const url = process.env.THORNODE_URL.replace('{DIRECTION}', direction).replace('{WALLET}', wallet).replace('{PAGE}', String(pagination + 1));
     const inOut = direction === 'recipient' ? 'in' : 'out';
-    console.log('url: ' + url);
-    await fetch(url).then((response) => {
+    // console.log('url: ' + url);
+    return await fetch(url).then((response) => {
         // console.log('response: fetch successful');
         return response.json();
     }).then(async (data) => {
@@ -197,7 +201,7 @@ export const historicalThornode = async (wallet, addAction) => {
     }
 };
 
-export const cosmos = async (network, wallet, pagination, limit, action, addCosmosTx, setTotal) => {
+export const cosmos = async (network, wallet, pagination, limit, action, direction, addCosmosTx, setTotal) => {
     const baseUrl = process.env[network + '_URL'];
     // the network variable must be one of the recognized options specified in the environment with "_URL" and "_LIMIT"
     // suffixed versions defined, expectation is to use the address prefix for the given blockchain as the network
@@ -205,16 +209,17 @@ export const cosmos = async (network, wallet, pagination, limit, action, addCosm
         throw 'Missing required configuration for given cosmos network: "' + network + '".';
     }
     const url = baseUrl
+        .replace('{DIRECTION}', direction)
         .replace('{ACTION}', action)
         .replace('{WALLET}', wallet)
         .replace('{OFFSET}', String(pagination * limit))
     ;
-    console.log('url: ' + url);
-    await fetch(url).then((response) => {
+    // console.log('url: ' + url);
+    return await fetch(url).then((response) => {
         // console.log('response: fetch successful');
         return response.json();
     }).then(async (data) => {
-        await setTotal(wallet + '-' + action, Number(data.pagination.total));
+        await setTotal(wallet + '-' + direction + '-' + action, Number(data.pagination.total));
         for (const tx of data.tx_responses) {
             tx.chain = network;
             tx.raw_log = null; // not needed
@@ -448,6 +453,8 @@ export const runDownload = async (redis, key, wallets, config) => {
     let grand = 1;
     let firstAction = true;
 
+    // notice: nested actions are only checked if the first action has at least one result
+    // IE: if a wallet has no "MsgDelegate", we don't bother checking for "MsgUndelegate"
     const cosmosGroups = [
         // on-chain sending
         ['/cosmos.bank.v1beta1.MsgSend'],
@@ -512,7 +519,6 @@ export const runDownload = async (redis, key, wallets, config) => {
         let prev = total[id] ?? 0;
         total[id] = count;
         grand += count - prev;
-        console.log('Downloading ' + downloaded + ' of ' + grand);
     };
 
     await redis.set(key + '_status', 'Starting to Download Transactions');
@@ -526,7 +532,7 @@ export const runDownload = async (redis, key, wallets, config) => {
             do {
                 count = await midgard(wallets[RUNE_TAG], page, addAction, setTotal);
                 page++;
-            } while (page * process.env.MIDGARD_LIMIT < count);
+            } while (page * process.env.MIDGARD_LIMIT < count && page < PAGE_CAP);
         };
         promises.push(midgardLoop());
     }
@@ -539,7 +545,7 @@ export const runDownload = async (redis, key, wallets, config) => {
             do {
                 count = await thornode(wallet, page, direction, addAction, setTotal);
                 page++;
-            } while (page * process.env.THORNODE_LIMIT < count);
+            } while (page * process.env.THORNODE_LIMIT < count && page < PAGE_CAP);
         };
 
         for (const wallet of wallets[THOR_TAG]) {
@@ -559,13 +565,20 @@ export const runDownload = async (redis, key, wallets, config) => {
         const cosmosLoop = async (wallet, first, additional) => {
             const network = wallet.split('1')[0]; // "chihuahua1sv0..." into just "chihuahua"
             const limit = Number(process.env[network + '_LIMIT']);
-            let page = 0;
-            let count = -1;
-            do {
-                count = await cosmos(network, wallet, page, limit, first, addCosmosTx, setTotal);
-            } while (page * limit < count);
+            let runAdditional = false;
+            for (const direction of ['message.sender', 'transfer.recipient']) {
+                let page = 0;
+                let count = -1;
+                do {
+                    count = await cosmos(network, wallet, page, limit, first, direction, addCosmosTx, setTotal);
+                    page++;
+                } while (page * limit < count && page < PAGE_CAP);
+                if (count > 0) {
+                    runAdditional = true;
+                }
+            }
 
-            if (count > 0 && additional && additional.length > 0) {
+            if (runAdditional && additional && additional.length > 0) {
                 for (const next of additional) {
                     promises.push(cosmosLoop(wallet, next));
                 }
@@ -582,6 +595,8 @@ export const runDownload = async (redis, key, wallets, config) => {
     }
 
     await Promise.all(promises);
+    await Promise.all(promises); // extra goto 10 line
+    // actually important because the list of promises will have changed while waiting
 }
 
 export const runCalculate = async (redis, key, wallets, config) => {

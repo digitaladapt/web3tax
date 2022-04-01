@@ -28,7 +28,6 @@
                         </h1>
                         <p class="subtitle">
                             Generate import-ready CSV file of your blockchain transactions, just by entering your wallet addresses.
-                            <span class="tag is-warning">currently limited to first 2,000 transactions, until I upgrade my server</span>
                         </p>
                         <form class="taxForm">
                             <input type="hidden" name="opt-verbose" value="standard">
@@ -63,9 +62,11 @@
                                 <p class="help">If checked, upgrading your RUNE will be reported as a trade.</p>
                             </div><div class="field">
                                 <div class="control">
-                                    <label class="checkbox"><input type="checkbox" name="opt-compound" value="on"> Report compounding transactions <span class="tag is-warning">will increase output significantly</span></label>
+                                    <label class="checkbox" disabled><input type="checkbox" name="opt-compound" value="on" disabled> Report compounding transactions <span class="tag is-warning">will increase output significantly</span></label>
                                 </div>
-                                <p class="help">If checked, any related AuthZ granted transactions will be reported.</p>
+                                <p class="help">Strongly discouraged, will report every single granted AuthZ transaction.<br>
+                                    We expect our Cerberus validator alone will perform more than 50,000 transactions annually.</p>
+                                <!-- <p class="help">If you compound across a few validators, you can easily have 100,000 transactions annually.</p> -->
                             </div><div class="field is-grouped is-grouped-multiline">
                                 <div class="control">
                                     <button type="submit" class="button is-info taxGo">Generate Report</button>
@@ -151,16 +152,14 @@
                             <li><strong>thor1vkevvt4u0t7yra4xf<wbr>k79hy7er38462w8yszx8y</strong> (RUNE)</li>
                             <li><strong>lum1wkzpd9uxftghyweh0d<wbr>d4v58x727ugvqk59t7xq</strong> (LUM)</li>
                             <li><strong>cerberus1wkzpd9uxftghy<wbr>weh0dd4v58x727ugvqkagk7xl</strong> (CRBRUS)</li>
-                            <div class="is-hidden donateMore">
-                                <li><strong>bc1ql7a704xh4ptzcvm8lx<wbr>6r8hwxcmau09dul6yh7y</strong> (BTC)</li>
-                                <li><strong>bnb1v54rp3w9h2hlresmvl<wbr>0msf4vycnvnuc7nyp6cr</strong> (BNB)</li>
-                                <li><strong>ltc1qzw06k68yesj62ja0z<wbr>9p4s527et496tdtstxvs5</strong> (LTC)</li>
-                                <li><strong>qzcxt5hl30yk3w052n3x6w<wbr>jvky9rwn0p6guz95qmje</strong> (BCH)</li>
-                                <li><strong>0x165d707704716b02c050<wbr>935F8Ce6E0429C9829e6</strong> (AVAX,&nbsp;BSC,&nbsp;ETH,&nbsp;FTM,&nbsp;etc.)</li>
-                                <li><strong>terra1t8magaxn4q6jllgx<wbr>4hregjh4gtn2k96caqmd7p</strong> (LUNA,&nbsp;UST)</li>
-                                <li><strong>cosmos1wkzpd9uxftghywe<wbr>h0dd4v58x727ugvqkp0khn5</strong> (ATOM)</li>
-                                <li><strong>chihuahua1wkzpd9uxftgh<wbr>yweh0dd4v58x727ugvqkz6mejk</strong> (HUAHUA)</li>
-                            </div>
+                            <li class="is-hidden donateMore"><strong>bc1ql7a704xh4ptzcvm8lx<wbr>6r8hwxcmau09dul6yh7y</strong> (BTC)</li>
+                            <li class="is-hidden donateMore"><strong>bnb1v54rp3w9h2hlresmvl<wbr>0msf4vycnvnuc7nyp6cr</strong> (BNB)</li>
+                            <li class="is-hidden donateMore"><strong>ltc1qzw06k68yesj62ja0z<wbr>9p4s527et496tdtstxvs5</strong> (LTC)</li>
+                            <li class="is-hidden donateMore"><strong>qzcxt5hl30yk3w052n3x6w<wbr>jvky9rwn0p6guz95qmje</strong> (BCH)</li>
+                            <li class="is-hidden donateMore"><strong>0x165d707704716b02c050<wbr>935F8Ce6E0429C9829e6</strong> (AVAX,&nbsp;BSC,&nbsp;ETH,&nbsp;FTM,&nbsp;etc.)</li>
+                            <li class="is-hidden donateMore"><strong>terra1t8magaxn4q6jllgx<wbr>4hregjh4gtn2k96caqmd7p</strong> (LUNA,&nbsp;UST)</li>
+                            <li class="is-hidden donateMore"><strong>cosmos1wkzpd9uxftghywe<wbr>h0dd4v58x727ugvqkp0khn5</strong> (ATOM)</li>
+                            <li class="is-hidden donateMore"><strong>chihuahua1wkzpd9uxftgh<wbr>yweh0dd4v58x727ugvqkz6mejk</strong> (HUAHUA)</li>
                         </ul>
                         <button type="button" class="button is-small is-success showMore">Show More</button>
                     </div>
@@ -186,7 +185,7 @@
                 </div><div class="column">
                     <div class="box content">
                         <h3>Privacy</h3>
-                        <p>Wallet addresses, and the generated report are only cached for 2 hours, and never saved to any hard drive.</p>
+                        <p>Wallet addresses, and the generated report are only cached for 12 hours, and never saved to any hard drive.</p>
                         <p>No Google Analytics or anything like that, but I do keep a log of how often the generate-report API is called.</p>
                     </div>
                 </div><div class="column">
@@ -215,6 +214,7 @@
     <script>
         Zepto(($) => {
             let key = null;
+            let $showMore = $('.showMore');
 
             for (const [key, value] of (new URLSearchParams(window.location.search)).entries()) {
                 if (key === 'opt-separate') {
@@ -225,13 +225,13 @@
                 }
             }
 
-            $('.showMore').on('click', () => {
-                if ($('.showMore').hasClass('showLess')) {
+            $showMore.on('click', () => {
+                if ($showMore.hasClass('showLess')) {
                     $('.donateMore').addClass('is-hidden');
-                    $('.showMore').removeClass('showLess is-warning').text('Show More');
+                    $showMore.removeClass('showLess is-warning').text('Show More');
                 } else {
                     $('.donateMore').removeClass('is-hidden');
-                    $('.showMore').addClass('showLess is-warning').text('Show Less');
+                    $showMore.addClass('showLess is-warning').text('Show Less');
                 }
             });
 
@@ -301,10 +301,12 @@
             });
 
             // lp stuff
+            let $thorAddress = $('.thorAddress');
+            let $lpResults = $('.lpResults');
 
             $('.lpStatus').on('click', () => {
-                if ($('.thorAddress').val().length < 42) {
-                    $('.lpResults').text('Invalid ThorChain Address').removeClass('is-hidden');
+                if ($thorAddress.val().length < 42) {
+                    $lpResults.text('Invalid ThorChain Address').removeClass('is-hidden');
                     return;
                 }
                 $('.lpStatus').addClass('is-loading');
@@ -313,13 +315,13 @@
                 // https://midgard.thorchain.info/v2/pools
                 let timer = setTimeout(() => {
                     $('.lpStatus').removeClass('is-loading');
-                    $('.lpResults').text('Error: Timeout').removeClass('is-hidden');
+                    $lpResults.text('Error: Timeout').removeClass('is-hidden');
                 }, 5000);
-                $.getJSON('//midgard.thorchain.info/v2/member/' + $('.thorAddress').val(), (member) => {
+                $.getJSON('//midgard.thorchain.info/v2/member/' + $thorAddress.val(), (member) => {
                     $.getJSON('//midgard.thorchain.info/v2/pools', (pools) => {
                         clearTimeout(timer);
                         $('.lpStatus').removeClass('is-loading');
-                        $('.lpResults').text('').removeClass('is-hidden');
+                        $lpResults.text('').removeClass('is-hidden');
                         member.pools.sort((a,b) => (a.pool > b.pool) ? 1 : -1);
                         for (const basis of member.pools) {
                             for (const current of pools) {
@@ -339,7 +341,7 @@
                                 let assetProfit = assetCurr - (assetBasis - assetOut);
                                 let runeUSD = Number(current.assetPriceUSD) * Number(current.assetDepth) / Number(current.runeDepth);
                                 let assetUSD = Number(current.assetPriceUSD);
-                                $('.lpResults').append(
+                                $lpResults.append(
                                     "<div class='box has-text-right'>" +
                                     "<div class='columns is-mobile'><div class='column py-0'>Pool</div>" +
                                         "<div class='column py-0 is-two-thirds has-text-centered'>" + basis.pool.split('-')[0] + "</div></div>" +

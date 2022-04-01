@@ -106,23 +106,34 @@
                 </div>
                 <div class="column">
                     <div class="box content">
-                        <h2>Delegate $LUM, and $CRBRUS<!-- $HUAHUA, --></h2>
+                        <h2>Delegate $LUM, $CRBRUS, and $HUAHUA</h2>
                         <p>As part of our expanding into the Cosmos Universe of blockchains, we've
                             setup validators that people can delegate to, on a few different blockchains,
                             as another way people can support the project. Currently, we have:
                             <a href="https://lum.network/" target="_blank">Lum Network</a>,
-                            <a href="https://cerberus.zone/" target="_blank">Cerberus</a>.
-                            <!-- <a href="https://chihuahua.wtf/" target="_blank">Chihuahua</a>, -->
+                            <a href="https://cerberus.zone/" target="_blank">Cerberus</a>, and
+                            <a href="https://chihuahua.wtf/" target="_blank">Chihuahua</a>.
                         </p>
                         <ul>
-                            <!-- <li><del><a href="https://chihuahua.omniflix.co/stake" target="_blank">Stake on Chihuahua</a>
-                                (<a href="https://www.mintscan.io/chihuahua/validators/chihuahuavaloper1krkmg6f0sjwalkx3nq39yt0upxgys7alpxrka7" target="_blank">MintScan</a>)</del>
-                                <span class="tag is-warning">Inactive</span></li> -->
                             <li><a href="https://explorer.lum.network/validators/lumvaloper1krkmg6f0sjwalkx3nq39yt0upxgys7alme6lps" target="_blank">Stake on Lum Network</a>
                                 (<a href="https://restake.app/lumnetwork" target="_blank">Restake.app</a>)</li>
                             <li><a href="https://stake.cerberus.zone/" target="_blank">Stake on Cerberus</a>
                                 (<a href="https://restake.app/cerberus" target="_blank">Restake.app</a>)</li>
+                            <li><span class="untilActive" style="text-decoration: line-through;"><a href="https://chihuahua.omniflix.co/stake" target="_blank">Stake on Chihuahua</a>
+                                (<a href="https://restake.app/chihuahua" target="_blank">Restake.app</a>)</span></li>
                         </ul>
+                        <p class="onceActive is-hidden">Help get our Chihuahua validator reach our goal:</p>
+                        <p class="whileInactive">Help get our Chihuahua validator back in the active set:</p>
+                        <div class="progressText has-text-centered"></div>
+                        <progress class="progress is-hidden" value="0" max="17000000"></progress>
+                        <div class="whileInactive">
+                            <p>Most interfaces don't show inactive validators, but here are some that do:</p>
+                            <ul>
+                                <li><a href="https://ping.pub/chihuahua/staking/chihuahuavaloper1krkmg6f0sjwalkx3nq39yt0upxgys7alpxrka7" target="_blank">Delegate at Ping.Pub</a></li>
+                                <li><a href="https://play.google.com/store/apps/details?id=wannabit.io.cosmostaion" target="_blank">Cosmostation for Android</a></li>
+                                <li><a href="https://apps.apple.com/app/cosmostation/id1459830339" target="_blank">Cosmostation for iPhone</a></li>
+                            </ul>
+                        </div>
                     </div>
                     <div class="box content">
                         <h2>Donate</h2>
@@ -366,6 +377,23 @@
                             }
                         }
                     });
+                });
+            });
+
+            // chihuahua progress bar
+            $.get('//' + window.location.host + '/minimum.txt', (min) => {
+                min = Math.round(Number(min) / 1000000);
+                $.getJSON('//' + window.location.host + '/validator.json', (data) => {
+                    let current = Math.round(Number(data.validator.tokens) / 1000000);
+                    let goal    = 17000000;
+                    let percent = (current / goal * 100).toFixed(3) + '%';
+                    $('.progress').removeClass('is-hidden').text(percent).val(current);
+                    $('.progressText').text(current.toLocaleString() + ' / ' + goal.toLocaleString() + ' HUAHUA (' + percent + ')');
+                    if (current >= min) {
+                        $('.untilActive').css('text-decoration', 'none');
+                        $('.whileInactive').addClass('is-hidden');
+                        $('.onceActive').removeClass('is-hidden');
+                    }
                 });
             });
         });

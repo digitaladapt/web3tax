@@ -12,6 +12,10 @@
 # port: tcp port to bind, for web interface and api calls (in production, you'd want a proxy like nginx to handle https)
 # ttl: time-to-live (in seconds); production 43200 (12 hours), test 120 (2 minutes)
 # test has extra flags in node command to detect errors and trace them to their source
+# one day, we'll also support terra for general transactions..
+#terra_LIMIT=100 \
+#terra_URL='https://lcd.terra.dev/cosmos/tx/v1beta1/txs?pagination.limit=100&pagination.offset={OFFSET}&events={DIRECTION}%3D%27{WALLET}%27&events=message.action%3D%27{ACTION}%27' \
+#terra_NODES='https://lcd.terra.dev/cosmos/staking/v1beta1/validators?pagination.limit=500' \
 
 cd "$(dirname "$0")" || exit
 

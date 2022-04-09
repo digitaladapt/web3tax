@@ -1,0 +1,1 @@
+node_modules/convert-bech32-address/convert-bech32-address-browser.js

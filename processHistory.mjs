@@ -14,7 +14,7 @@ for (const transaction of historicalTransactions) {
     }
     output[transaction.recipient].push(transaction);
 }
-console.log('export const groupedTransactions = ' + JSON.stringify(output) + ';');
+console.log('export const groupedTransactions = ' + JSON.stringify(output).replace(/}],/g, '}],\n') + ';');
 
 // I did a complex but straightforward regular-expression find-replace to convert the csv file into mjs
 // then we use this script to group the transactions by wallet, so that don't have to search the whole list

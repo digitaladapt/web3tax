@@ -282,106 +282,87 @@ export const normalizeAddresses = (addresses) => {
     };
     const errors  = [];
 
-    for (let [type, address] of Object.entries(addresses)) {
-        address = String(address);
+    for (let [type, fields] of Object.entries(addresses)) {
+        for (let address of fields.split(/[,\s\r\n]+/)) {
+            address = String(address);
 
-        // ignore empty addresses
-        if (address.length < 1) {
-            continue;
-        }
-
-        switch (true) {
-            case type.startsWith('eth'):
-                // ether /^0x[a-f0-9]{40}$/
-                address = address.toLowerCase();
-                if (/^0x[a-f0-9]{40}$/.test(address)) {
-                    wallets.add(address, RUNE_TAG);
-                    continue;
-                }
-                break;
-            case type.startsWith('btc'):
-                // legacy /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/
-                // segwit /^bc1[a-z0-9]{38,90}$/
-                if (/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address)) {
-                    wallets.add(address, RUNE_TAG);
-                    continue;
-                }
-                address = address.toLowerCase();
-                if (/^bc1[a-z0-9]{38,90}$/.test(address)) {
-                    wallets.add(address, RUNE_TAG);
-                    continue;
-                }
-                break;
-            case type.startsWith('bch'):
-                // legacy /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/
-                // normal /^(bitcoincash:)?[qp][a-z0-9]{38,90}$/
-                if (/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address)) {
-                    wallets.add(address, RUNE_TAG);
-                    continue;
-                }
-                address = address.toLowerCase();
-                if (/^(bitcoincash:)?[qp][a-z0-9]{38,90}$/.test(address)) {
-                    wallets.add(address, RUNE_TAG);
-                    continue;
-                }
-                break;
-            case type.startsWith('bnb'):
-                // binance /^bnb[a-z0-9]{38,90}$/
-                address = address.toLowerCase();
-                if (/^bnb[a-z0-9]{38,90}$/.test(address)) {
-                    wallets.add(address, RUNE_TAG);
-                    continue;
-                }
-                break;
-            case type.startsWith('ltc'):
-                // legacy /^[LM3][a-km-zA-HJ-NP-Z1-9]{25,34}$/
-                // lower  /^ltc[a-z0-9]{38,90}$/
-                if (/^[LM3][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address)) {
-                    wallets.add(address, RUNE_TAG);
-                    continue;
-                }
-                address = address.toLowerCase();
-                if (/^ltc[a-z0-9]{38,90}$/.test(address)) {
-                    wallets.add(address, RUNE_TAG);
-                    continue;
-                }
-                break;
-            case type.startsWith('thor'):
-                // thor /^thor[a-z0-9]{38,90}$/
-                address = address.toLowerCase();
-                if (/^thor[a-z0-9]{38,90}$/.test(address)) {
-                    wallets.add(address, RUNE_TAG, THOR_TAG);
-                    continue;
-                }
-                break;
-            case type.startsWith('doge'):
-                // doge /^D[5-9A-HJ-NP-U][1-9A-HJ-NP-Za-km-z]{25,34}$/
-                if (/^D[5-9A-HJ-NP-U][1-9A-HJ-NP-Za-km-z]{25,34}$/.test(address)) {
-                    wallets.add(address, RUNE_TAG);
-                    continue;
-                }
-                break;
-            case type.startsWith('chihuahua'):
-                // chihuahua /^chihuahua[a-z0-9]{38,90}$/
-                address = address.toLowerCase();
-                if (/^chihuahua[a-z0-9]{38,90}$/.test(address)) {
-                    wallets.add(address, COSMOS_TAG);
-                    continue;
-                }
-                break;
-            case type.startsWith('cerberus'):
-                // cerberus /^cerberus[a-z0-9]{38,90}$/
-                address = address.toLowerCase();
-                if (/^cerberus[a-z0-9]{38,90}$/.test(address)) {
-                    wallets.add(address, COSMOS_TAG);
-                    continue;
-                }
-                break;
-            case type.startsWith('opt-'):
-                // disregard options
+            // ignore empty addresses and non-address options
+            if (address.length < 1 || type.startsWith('opt-')) {
                 continue;
+            }
+
+            // btc: legacy /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/
+            if (/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address)) {
+                wallets.add(address, RUNE_TAG);
+                continue;
+            }
+            // bch: legacy /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/
+            if (/^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address)) {
+                wallets.add(address, RUNE_TAG);
+                continue;
+            }
+            // ltc: legacy /^[LM3][a-km-zA-HJ-NP-Z1-9]{25,34}$/
+            if (/^[LM3][a-km-zA-HJ-NP-Z1-9]{25,34}$/.test(address)) {
+                wallets.add(address, RUNE_TAG);
+                continue;
+            }
+            // doge /^D[5-9A-HJ-NP-U][1-9A-HJ-NP-Za-km-z]{25,34}$/
+            if (/^D[5-9A-HJ-NP-U][1-9A-HJ-NP-Za-km-z]{25,34}$/.test(address)) {
+                wallets.add(address, RUNE_TAG);
+                continue;
+            }
+
+            address = address.toLowerCase();
+
+            // eth: ether /^0x[a-f0-9]{40}$/
+            if (/^0x[a-f0-9]{40}$/.test(address)) {
+                wallets.add(address, RUNE_TAG);
+                continue;
+            }
+            // btc: segwit /^bc1[a-z0-9]{38,90}$/
+            if (/^bc1[a-z0-9]{38,90}$/.test(address)) {
+                wallets.add(address, RUNE_TAG);
+                continue;
+            }
+            // bch: normal /^(bitcoincash:)?[qp][a-z0-9]{38,90}$/
+            if (/^(bitcoincash:)?[qp][a-z0-9]{38,90}$/.test(address)) {
+                wallets.add(address, RUNE_TAG);
+                continue;
+            }
+            // bnb: binance /^bnb[a-z0-9]{38,90}$/
+            if (/^bnb[a-z0-9]{38,90}$/.test(address)) {
+                wallets.add(address, RUNE_TAG);
+                continue;
+            }
+            // ltc: lower  /^ltc[a-z0-9]{38,90}$/
+            if (/^ltc[a-z0-9]{38,90}$/.test(address)) {
+                wallets.add(address, RUNE_TAG);
+                continue;
+            }
+            // thor /^thor[a-z0-9]{38,90}$/
+            if (/^thor[a-z0-9]{38,90}$/.test(address)) {
+                wallets.add(address, RUNE_TAG, THOR_TAG);
+                continue;
+            }
+            // terra /^terra[a-z0-9]{38,90}$/
+            if (/^terra[a-z0-9]{38,90}$/.test(address)) {
+                wallets.add(address, RUNE_TAG); // TODO eventually we may add the COSMOS_TAG, if we process general transactions..
+                // TODO would come with the added complexity of cross-referencing midgard and cosmos data, so we don't double report stuff..
+                continue;
+            }
+            // chihuahua /^chihuahua[a-z0-9]{38,90}$/
+            if (/^chihuahua[a-z0-9]{38,90}$/.test(address)) {
+                wallets.add(address, COSMOS_TAG);
+                continue;
+            }
+            // cerberus /^cerberus[a-z0-9]{38,90}$/
+            if (/^cerberus[a-z0-9]{38,90}$/.test(address)) {
+                wallets.add(address, COSMOS_TAG);
+                continue;
+            }
+
+            errors.push(address);
         }
-        errors.push(address);
     }
 
     if (errors.length > 0) {
@@ -478,10 +459,14 @@ export const runDownload = async (redis, key, wallets, config) => {
         ['/cosmos.distribution.v1beta1.MsgWithdrawValidatorCommission'],
 
         // authz related, only include MsgExec if desired
+        // TODO this should only apply to cosmos chains with authz.. need a way to specify which extras apply to which chains..
         ['/cosmos.authz.v1beta1.MsgGrant', [
             '/cosmos.authz.v1beta1.MsgRevoke',
             ...(config.includeAuthZ ? ['/cosmos.authz.v1beta1.MsgExec'] : []),
         ]],
+
+        // TODO need find out what else Juno needs, and how to process them..
+        // I would expect a CW Smart Contract call..
     ];
 
     // kick off each process as async job, then wait until all have completed, then return

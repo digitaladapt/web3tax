@@ -90,6 +90,7 @@ export function Calculation(redis, key, action, config) {
             sellCurr:   this.token(this.action.in[0].coins[0].asset),
                         ...this.actionFee(),
             date:       formatDate(this.action.date),
+            txID:       this.action.in[0].txID,
         });
 
         // after a swap to a non-RUNE asset, we have to "send" it to other wallet
@@ -122,6 +123,7 @@ export function Calculation(redis, key, action, config) {
                     comment:    'Sent to Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
                                 ...this.actionFee(this.token(sent.coins[0].asset)),
                     date:       formatDate(this.action.date),
+                    txID:       sent.txID,
                 });
             }
 
@@ -157,6 +159,7 @@ export function Calculation(redis, key, action, config) {
                 sellCurr:   this.token(this.action.in[0].coins[0].asset),
                 comment:    'Upgraded ' + chainToken(this.action.in[0].coins[0].asset),
                 date:       formatDate(this.action.date),
+                txID:       this.action.in[0].txID,
             });
         } else {
             // even if people don't consider the upgrade a trade, it still moved to the RUNE wallet
@@ -206,6 +209,7 @@ export function Calculation(redis, key, action, config) {
                                ...this.actionFee('RUNE'),
                     comment:   'Received from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
                     date:      formatDate(this.action.date, -1),
+                    txID:       this.inMatch('THOR.RUNE').txID,
                 });
             }
             if (basis[asset] > 0) {
@@ -216,6 +220,7 @@ export function Calculation(redis, key, action, config) {
                                ...this.actionFee('RUNE', (basis.RUNE > 0)),
                     comment:   'Received from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
                     date:      formatDate(this.action.date, -1),
+                    txID:       this.inMatch(asset).txID,
                 });
             }
         }
@@ -426,7 +431,7 @@ export function Calculation(redis, key, action, config) {
                 // default: proceed as normal
             }
         }
-        return asset.split(/[.\/]/)[1].split('-')[0];
+        return asset?.split(/[.\/]/)[1].split('-')[0];
     };
 
     /* ---------------------------------------------------------------------- */
@@ -504,6 +509,7 @@ export function Calculation(redis, key, action, config) {
                         ...this.actionFee(buyCurr, skipFee),
             comment:    'Trade from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
             date:       formatDate(this.action.date),
+            txID:       this.inMatch(sellCurr).txID,
         });
 
         if (buyCurr !== 'RUNE') {
@@ -534,6 +540,7 @@ export function Calculation(redis, key, action, config) {
                         ...this.actionFee(buyCurr, skipFee),
             comment:    'Profit from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
             date:       formatDate(this.action.date, 1),
+            txID:       this.inMatch(buyCurr),
         });
     };
 
@@ -548,6 +555,7 @@ export function Calculation(redis, key, action, config) {
                         ...this.actionFee(sellCurr, skipFee),
             comment:    'Loss from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
             date:       formatDate(this.action.date, 1),
+            txID:       this.inMatch(sellCurr),
         });
     };
 
@@ -570,5 +578,16 @@ export function Calculation(redis, key, action, config) {
             }
         }
         return this.action.out[0];
+    };
+
+    /* find the action.in that matches the given asset, or default to the first,
+     * used to determine transaction ids */
+    this.inMatch = (asset) => {
+        for (const received of this.action.in) {
+            if (this.token(received.coins[0]?.asset) === asset) {
+                return received;
+            }
+        }
+        return this.action.in[0];
     };
 }

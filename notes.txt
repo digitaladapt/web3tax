@@ -1,3 +1,15 @@
+NEW:
+
+instead of the whole 'make bookmark-able', just update the url on blur of any field,
+so it's always ready to go.
+
+and add terra address input for thorchain
+
+oh, and auto calculate cosmos addresses, so user only has to enter one..
+might be nice to do the same for thor-related addresses.. enter thor, do a lookup for related..
+
+---
+
 TENTATIVE:
 
 support for both Chihuahua and Cerberus, complete with Authz, probably missing some edge case of transaction, such as un-delegate..

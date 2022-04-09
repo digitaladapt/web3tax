@@ -30,26 +30,19 @@
                             Generate import-ready CSV file of your blockchain transactions, just by entering your wallet addresses.
                         </p>
                         <form class="taxForm">
-                            <input type="hidden" name="opt-verbose" value="standard">
+                            <div class="field"><label class="label" for="chihuahua">HUAHUA</label><div class="control">
+                                <input type="text" id="chihuahua" name="chihuahua" class="input cosmosAddress" placeholder="chihuahua1..." autocomplete="on">
+                            </div></div>
+                            <div class="field"><label class="label" for="cerberus">CRBRUS</label><div class="control">
+                                <input type="text" id="cerberus" name="cerberus" class="input cosmosAddress" placeholder="cerberus1..." autocomplete="on">
+                            </div></div>
+                            <div class="field"><label class="label" for="thor">THOR</label><div class="control">
+                                <input type="text" id="thor" name="thor" class="input thorAddress" placeholder="thor1..." autocomplete="on">
+                            </div></div>
+                            <div class="field"><label class="label" for="rune">THOR Related (BNB / BTC / LTC / BCH / ETH / DOGE / TERRA)</label><div class="control thorGuess">
+                                <textarea id="rune" name="rune" rows="7" class="thorRelated textarea" placeholder="bnb1..." autocomplete="on"></textarea>
+                            </div><p class="help">At least one space, comma, or newline between addresses.</p></div>
                             <div class="field"><div class="control">
-                                <label class="label">HUAHUA <input type="text" name="chihuahua" class="input" placeholder="chihuahua1..." autocomplete="on"></label>
-                            </div></div><div class="field"><div class="control">
-                                <label class="label">CRBRUS <input type="text" name="cerberus" class="input" placeholder="cerberus1..." autocomplete="on"></label>
-                            </div></div><div class="field"><div class="control">
-                                <label class="label">THOR <input type="text" name="thor" class="input thorAddress" placeholder="thor1..." autocomplete="on"></label>
-                            </div></div><div class="field"><div class="control">
-                                <label class="label">BNB  <input type="text" name="bnb"  class="input" placeholder="bnb1..." autocomplete="on"></label>
-                            </div></div><div class="field"><div class="control">
-                                <label class="label">BTC  <input type="text" name="btc"  class="input" placeholder="bc1..." autocomplete="on"></label>
-                            </div></div><div class="field"><div class="control">
-                                <label class="label">LTC  <input type="text" name="ltc"  class="input" placeholder="ltc1..." autocomplete="on"></label>
-                            </div></div><div class="field"><div class="control">
-                                <label class="label">BCH  <input type="text" name="bch"  class="input" placeholder="q|p..." autocomplete="on"></label>
-                            </div></div><div class="field"><div class="control">
-                                <label class="label">ETH  <input type="text" name="eth"  class="input" placeholder="0x..." autocomplete="on"></label>
-                            </div></div><div class="field"><div class="control">
-                                <label class="label">DOGE <input type="text" name="doge" class="input" placeholder="D..." autocomplete="on"></label>
-                            </div></div><div class="field"><div class="control">
                                 <label class="label" for="costBasisMethod">Cost Basis Method <span class="tag is-link has-text-weight-normal">this should match what your tax software is set to</span></label>
                                 <div class="select"><select name="opt-method" id="costBasisMethod">
                                     <option value="FIFO">First-In-First-Out (FIFO)</option>
@@ -79,6 +72,7 @@
                                     <p class="help">no asset-only reporting yet</p>
                                 </div>
                             </div>
+                            <input type="hidden" name="opt-verbose" value="standard">
                         </form>
                         <div class="taxResults is-hidden notification is-primary is-light" style="margin-top: 1em;">
                             <form class="taxDownload" method="get" action="/report">
@@ -93,13 +87,9 @@
                                     </select></div>
                                 </div></div><div class="taxGroup field is-hidden"><div class="control">
                                     <label class="label">TradeGroup (optional) <input type="text" name="group" class="input" autocomplete="on"></label>
-                                </div></div><div class="field buttons is-grouped">
-                                <div class="control is-expanded">
+                                </div></div><div class="field"><div class="control">
                                     <button type="submit" class="button is-success taxGet">Download CSV</button>
-                                </div><div class="control">
-                                    <button type="button" class="button is-warning taxBookmark">Make Bookmark-able</button>
-                                    </div>
-                                </div>
+                                </div></div>
                             </form>
                         </div>
                     </div>
@@ -211,29 +201,32 @@
             </div>
         </div>
     </section>
-    <div class="modal alertBookmark">
-        <div class="modal-background closeBookmark"></div>
-        <div class="modal-card">
-            <div class="modal-card-body">
-                Your address bar now has your wallet addresses, bookmark it, and when you return,
-                the fields will automatically re-populate with these addresses.
-            </div>
-        </div>
-        <button class="modal-close closeBookmark is-large" aria-label="close"></button>
-    </div>
     <script src="https://zeptojs.com/zepto.min.js"></script>
+    <script src="/convert-address.js"></script>
     <script>
         Zepto(($) => {
             let key = null;
+            let $taxForm = $('.taxForm');
             let $showMore = $('.showMore');
+            let $thorAddress = $('.thorAddress');
+            let $cosmosAddress = $('.cosmosAddress');
 
+            let updates = false;
             for (const [key, value] of (new URLSearchParams(window.location.search)).entries()) {
                 if (key === 'opt-separate') {
                     // checkboxes need to be handled specially
-                    $('.taxForm').find('[name=' + key + ']').prop('checked', true);
+                    $taxForm.find('[name=' + key + ']').prop('checked', true);
+                } else if (['bnb', 'btc', 'ltc', 'bch', 'eth', 'doge', 'terra'].includes(key)) {
+                    // bridge how we used to store addresses, and how we store them now
+                    let bob = $taxForm.find('[name=rune]').val();
+                    $taxForm.find('[name=rune]').val(bob + (bob !== '' ? ',\n' : '') + value);
+                    updates = true;
                 } else {
-                    $('.taxForm').find('[name=' + key + ']').val(value);
+                    $taxForm.find('[name=' + key + ']').val(value);
                 }
+            }
+            if (updates) {
+                $taxForm.trigger('change');
             }
 
             $showMore.on('click', () => {
@@ -246,19 +239,8 @@
                 }
             });
 
-            $('.taxBookmark').on('click', () => {
-                window.history.pushState({}, '', '/?' + $('.taxForm').serialize());
-                $('.alertBookmark').addClass('is-active');
-            });
-
-            $('.closeBookmark').on('click', () => {
-                $('.alertBookmark').removeClass('is-active');
-            });
-
-            $(document).on('keydown', (event) => {
-                if (event.keyCode === 27) {
-                    $('.alertBookmark').removeClass('is-active');
-                }
+            $taxForm.on('change', () => {
+                window.history.pushState({}, '', '/?' + $taxForm.serialize());
             });
 
             // trade-group field appears or hides depending on what format is selected
@@ -293,7 +275,7 @@
 
                 $('.taxGo').addClass('is-loading');
                 $('.taxStatus').text('Submitting Request...');
-                $.getJSON('//' + window.location.host + '/generate?' + $('.taxForm').serialize(), (response) => {
+                $.getJSON('//' + window.location.host + '/generate?' + $taxForm.serialize(), (response) => {
                     // update the status message
                     $('.taxStatus').text(response.message);
                     if (response.status === 'success') {
@@ -311,8 +293,44 @@
                 return false;
             });
 
+            // cosmos auto-complete
+            $cosmosAddress.on('blur', (event) => {
+                let address = $(event.target).val();
+                updates = false;
+                $cosmosAddress.each((index, element) => {
+                    if ($(element).val() === '') {
+                        $(element).val(lookup(address, $(element).attr('name')));
+                        updates = true;
+                    }
+                });
+                if (updates) {
+                    $taxForm.trigger('change');
+                }
+            });
+            /*
+    function btnConvert_onClick() {
+      var address = document.getElementById("address").value;
+      var prefix = document.getElementById("prefix").value;
+      var output = lookup(address, prefix); // use this "lookup" function in browser
+      document.getElementById("output").innerHTML = output;
+    }
+             */
+
+            // thor auto-complete
+            $thorAddress.on('blur', () => {
+                if ($('.thorRelated').val() === '') {
+                    $('.thorGuess').addClass('is-loading');
+                    $.getJSON('//' + window.location.host + '/guess?thor=' + $thorAddress.val(), (wallets) => {
+                        if (wallets.wallets.length > 0) {
+                            $('.thorRelated').val(wallets.wallets.join(',\n'));
+                            $taxForm.trigger('change');
+                        }
+                        $('.thorGuess').removeClass('is-loading');
+                    });
+                }
+            });
+
             // lp stuff
-            let $thorAddress = $('.thorAddress');
             let $lpResults = $('.lpResults');
 
             $('.lpStatus').on('click', () => {

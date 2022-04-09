@@ -12,6 +12,9 @@ import {
     sha256,
     discord
 } from './functions.mjs';
+import { exec } from "child_process";
+import { promisify } from 'util';
+const execPromise = promisify(exec);
 
 // endpoint: render the html
 export const loadIndex = async () => {
@@ -30,7 +33,11 @@ export const submitAddresses = async (event, context, callback) => {
         wallets = normalizeAddresses(event.queryStringParameters);
         // console.log(wallets);
     } catch (errors) {
-        callback(null, formatError('Invalid wallet address(es) provided: ' + errors.join(', ')));
+        if (errors.hasOwnProperty('join')) {
+            callback(null, formatError('Invalid wallet address(es) provided: ' + errors.join(', ')));
+        } else {
+            callback(null, formatError(errors.message));
+        }
         return;
     }
 
@@ -85,6 +92,26 @@ export const getStatus = async (event) => {
     return formatError('Unknown key', null, { ready: -1 });
 };
 
+export const findRelated = async (event) => {
+    const address = event.queryStringParameters.thor ?? null;
+    if (/^thor[a-z0-9]{38,90}$/.test(address)) {
+        // get actions performed by this thor wallet, and grep/cut/sort/uniq to pluck out just the interesting bit
+        // script expected to return something like: '''"addr1", "addr2",''' (with a trailing comma)
+        // should probably process the json in code, but the shell script is fine for now
+        const program = 'curl -s "https://midgard.thorchain.info/v2/actions?address={WALLET}" | grep "address" | cut -d \\: -f 2 | sort | uniq | grep -v "thor1"'.replace('{WALLET}', address);
+        try {
+            const { stdout } = await execPromise(program);
+            const wallets = JSON.parse('[' + stdout + '""]');
+            wallets.pop(); // blank final element to handle trailing comma
+            return formatSuccess({ wallets: wallets });
+        } catch (error) {
+            return formatError('Unsuccessful Request', null, { wallets: [] });
+        }
+    }
+
+    return formatError('Invalid Request', null, { wallets: [] });
+};
+
 export const fetchReport = async (event) => {
     const key = event.queryStringParameters.key ?? null;
     const format = event.queryStringParameters.format ?? null;
@@ -103,6 +130,7 @@ export const fetchReport = async (event) => {
         let base  = { netAmount: null, netCurr: null };
         let lines = ['Date,Sent Amount,Sent Currency,Received Amount,Received Currency,Fee Amount,Fee Currency,Net Worth Amount,Net Worth Currency,Label,Description,TxHash'];
         // re-categorize with the correct keywords
+        // TODO use the prepare instead of find/replace, better way to handle these changes
         let fix   = {
             find: /,Withdrawal,Sent|,Deposit,Received|,Trade,|,Deposit,|,Withdrawal,|,Staking,|,Lost,/g,
             replace: (found) => {
@@ -134,6 +162,7 @@ export const fetchReport = async (event) => {
                 base  = { exchange: 'thor', tradeGroup: group };
                 lines = ['Type,Buy Amount,Buy Currency,Sell Amount,Sell Currency,Fee,Fee Currency,Exchange,Trade-Group,Comment,Date,Tx-ID'];
                 // DD.MM.YYYY date format
+                // TODO use the prepare instead of find/replace, better way to handle these changes
                 fix   = {
                     find: /,(\d{4})-(\d{2})-(\d{2}) |,THOR,|,RUNE-[ETHB1A]{3},/g,
                     replace: (found) => {
@@ -144,6 +173,9 @@ export const fetchReport = async (event) => {
                             case ',THOR,':
                                 // the only "THOR" coin is THORSwap
                                 return ',THOR2,';
+                            case ',LUNA,':
+                                // the only "LUNA" coin is Terra's Luna
+                                return ',LUNA2,';
                             case ',RUNE-B1A,':
                             case ',RUNE-ETH,':
                                 return ',RUNE2,';
@@ -159,6 +191,7 @@ export const fetchReport = async (event) => {
                 lines = ['Date,Received Quantity,Received Currency,Sent Quantity,Sent Currency,Fee Amount,Fee Currency,Tag'];
                 // MM/DD/YYYY date format
                 // re-categorize with the correct keywords
+                // TODO use the prepare instead of find/replace, better way to handle these changes
                 fix   = {
                     find: /(\d{4})-(\d{2})-(\d{2}) |,Trade|,Deposit|,Withdrawal|,Staking|,Lost/g,
                         replace: (found) => {

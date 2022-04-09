@@ -2,13 +2,14 @@
 
 import fs from 'fs';
 import http from 'http';
-import { submitAddresses, getStatus, fetchReport, purgeReport } from './handler.mjs';
+import { submitAddresses, getStatus, fetchReport, purgeReport, findRelated } from './handler.mjs';
 import { loadNodes } from "./functions.mjs";
 
 const hostname = 'localhost';
 const port = Number(process.env.PORT);
 
 let indexPage = '';
+let convertScript = '';
 
 const server = http.createServer((req, res) => {
     res.statusCode = 200;
@@ -29,12 +30,24 @@ const server = http.createServer((req, res) => {
             res.setHeader('Content-Type', 'text/html');
             res.end(indexPage);
             break;
+        case '/convert-address.js':
+            res.setHeader('Content-Type', 'application/javascript');
+            res.end(convertScript);
+            break;
         case '/generate':
             console.log('generate|' + Date.now() + '|' + JSON.stringify(query));
             res.setHeader('Content-Type', 'application/json');
 			submitAddresses({
                 queryStringParameters: query,
             }, null, (error, output) => {
+                res.end(output.body);
+            });
+            break;
+        case '/guess':
+            res.setHeader('Content-Type', 'application/json');
+            findRelated({
+                queryStringParameters: query,
+            }).then((output) => {
                 res.end(output.body);
             });
             break;
@@ -76,6 +89,14 @@ fs.readFile('./index.html', (error, buffer) => {
     }
     indexPage = buffer.toString();
     console.log('successfully loaded index.html');
+});
+
+fs.readFile('./convert-address.js', (error, buffer) => {
+    if (error) {
+        throw error;
+    }
+    convertScript = buffer.toString();
+    console.log('successfully loaded convert-address.js');
 });
 
 await loadNodes('chihuahua');

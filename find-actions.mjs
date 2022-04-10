@@ -8,8 +8,11 @@ import fetch from "node-fetch";
 // const baseUrl = 'https://api.mintscan.io/v1/chihuahua/block/chihuahua-1/{HEIGHT}';
 // const startHeight = 1516207;
 // cerberus
-const baseUrl = 'https://api.mintscan.io/v1/cerberus/block/cerberus-chain-1/{HEIGHT}';
-const startHeight = 241327;
+// const baseUrl = 'https://api.mintscan.io/v1/cerberus/block/cerberus-chain-1/{HEIGHT}';
+// const startHeight = 241327;
+// juno
+const baseUrl = 'https://api.mintscan.io/v1/juno/block/juno-1/{HEIGHT}';
+const startHeight = 2611462;
 let height = startHeight;
 let url;
 const known = {

@@ -2,7 +2,7 @@
 
 import fs from 'fs';
 import http from 'http';
-import { submitAddresses, getStatus, fetchReport, purgeReport, findRelated } from './handler.mjs';
+import {submitAddresses, getStatus, fetchReport, purgeReport, findRelated, donations} from './handler.mjs';
 import { loadNodes } from "./functions.mjs";
 
 const hostname = 'localhost';
@@ -46,6 +46,13 @@ const server = http.createServer((req, res) => {
         case '/guess':
             res.setHeader('Content-Type', 'application/json');
             findRelated({
+                queryStringParameters: query,
+            }).then((output) => {
+                res.end(output.body);
+            });
+            break;
+        case '/donations':
+            donations({
                 queryStringParameters: query,
             }).then((output) => {
                 res.end(output.body);

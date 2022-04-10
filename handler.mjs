@@ -14,6 +14,7 @@ import {
 } from './functions.mjs';
 import { exec } from "child_process";
 import { promisify } from 'util';
+import {BASE_OFFSET} from "./calculations.mjs";
 const execPromise = promisify(exec);
 
 // endpoint: render the html
@@ -110,6 +111,27 @@ export const findRelated = async (event) => {
     }
 
     return formatError('Invalid Request', null, { wallets: [] });
+};
+
+export const donations = async (event) => {
+    let page = 0;
+    let count = -1;
+    let total = 0;
+    do {
+        page++;
+        const program = 'curl "https://thornode.ninerealms.com/txs?limit=50&message.action=send&transfer.recipient=thor1vkevvt4u0t7yra4xfk79hy7er38462w8yszx8y&page={PAGE}" | jq .txs[].tx.value.msg[].value.amount[].amount,.total_count'.replace('{PAGE}', String(page));
+        try {
+            const { stdout } = await execPromise(program);
+            const recieved = JSON.parse('[' + stdout.replace(/\n/g, ',') + '""]');
+            recieved.pop(); // blank final element to handle trailing comma
+            count = recieved.pop(); // last element is total_count
+            for (const element of recieved) {
+                total += Number(element) / BASE_OFFSET;
+            }
+        } catch (error) {
+        }
+    } while (page * 50 < count);
+    return formatSuccess({ total: total });
 };
 
 export const fetchReport = async (event) => {

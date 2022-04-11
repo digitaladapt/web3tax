@@ -12,7 +12,7 @@ import fetch from "node-fetch";
 // const startHeight = 241327;
 // juno
 const baseUrl = 'https://api.mintscan.io/v1/juno/block/juno-1/{HEIGHT}';
-const startHeight = 2611462;
+const startHeight = 2578097; // 2611462;
 let height = startHeight;
 let url;
 const known = {
@@ -42,6 +42,13 @@ const known = {
     '/cosmos.authz.v1beta1.MsgGrant': true,
     '/cosmos.authz.v1beta1.MsgRevoke': true, // need MsgGrant
     '/cosmos.authz.v1beta1.MsgExec': true, // need MsgGrant AND config.includeAuthz
+
+    // juno CW
+    '/cosmwasm.wasm.v1.MsgExecuteContract': true,
+    '/cosmwasm.wasm.v1.MsgInstantiateContract': true,
+
+    // juno unknown
+    '/ibc.core.channel.v1.MsgTimeout': true,
 
     // '/': true,
 };

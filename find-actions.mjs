@@ -44,7 +44,7 @@ const known = {
     '/cosmos.authz.v1beta1.MsgExec': true, // need MsgGrant AND config.includeAuthz
 
     // juno CW
-    '/cosmwasm.wasm.v1.MsgExecuteContract': true,
+    //'/cosmwasm.wasm.v1.MsgExecuteContract': true, // commented so we can find contract calls
     '/cosmwasm.wasm.v1.MsgInstantiateContract': true,
 
     // juno unknown
@@ -52,38 +52,75 @@ const known = {
 
     // '/': true,
 };
-do {
-    url = baseUrl.replace('{HEIGHT}', String(height));
-    await fetch(url, {headers: {"user-agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:98.0) Gecko/20100101 Firefox/98.0"}}).then((response) => {
-        // console.log('response: fetch successful');
-        return response.json();
-    }).then(async (data) => {
-        for (const tx of data[0].txs) {
-            for (const log of tx.data.logs) {
-                for (const event of log.events) {
-                    if (event.type === 'message') {
-                        for (const attribute of event.attributes) {
-                            if (attribute.key === 'action') {
-                                if ( ! known[attribute.value]) {
-                                    known[attribute.value] = true;
-                                    console.log("--------");
-                                    console.log("Action : " + attribute.value);
-                                    console.log("Message: " + JSON.stringify(tx.data.tx.body.messages[log.msg_index]));
-                                    console.log("Events : " + JSON.stringify(log.events));
-                                    console.log("--------");
+const contracts = {};
+let doPrint = false;
+let theData;
+let tx;
+let log;
+let event;
+let attribute;
+try {
+    do {
+        url = baseUrl.replace('{HEIGHT}', String(height));
+        await fetch(url, {headers: {"user-agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:98.0) Gecko/20100101 Firefox/98.0"}}).then((response) => {
+            // console.log('response: fetch successful');
+            return response.json();
+        }).then(async (data) => {
+            theData = data;
+            for (tx of data[0].txs ?? []) {
+                for (log of tx.data.logs ?? []) {
+                    for (event of log.events ?? []) {
+                        if (event.type === 'message') {
+                            for (attribute of event.attributes ?? []) {
+                                if (attribute.key === 'action') {
+                                    if (!known[attribute.value]) {
+                                        if (attribute.value === '/cosmwasm.wasm.v1.MsgExecuteContract') {
+
+                                            innerLoop:
+                                            for (const anEvent of log.events ?? []) {
+                                                if (anEvent.type === 'execute') {
+                                                    for (const anAttr of anEvent.attributes ?? []) {
+                                                        if (anAttr.key === '_contract_address') {
+                                                            if (!contracts[anAttr.value]) {
+                                                                contracts[anAttr.value] = true;
+                                                                doPrint = true;
+                                                                break innerLoop;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                        } else {
+                                            known[attribute.value] = true;
+                                            doPrint = true;
+                                        }
+
+                                        if (doPrint) {
+                                            console.log("--------");
+                                            console.log("Action : " + attribute.value);
+                                            console.log("Message: " + JSON.stringify(tx.data.tx.body.messages[log.msg_index]));
+                                            console.log("Events : " + JSON.stringify(log.events));
+                                            console.log("--------");
+                                            doPrint = false;
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
+            height--;
+        }).catch((error) => {
+            throw error;
+        });
+        // periodic dot for monitoring the script, to make sure it's still looping successfully
+        if ((height % 10) === 0) {
+            process.stdout.write('.');
         }
-        height--;
-    }).catch((error) => {
-        throw error;
-    });
-    // periodic dot for monitoring the script, to make sure it's still looping successfully
-    if ((height % 10) === 0) {
-        process.stdout.write('.');
-    }
-} while (height > 1 && startHeight - height < 14400);
+    } while (height > 1 && startHeight - height < 14400);
+} catch (error) {
+    console.trace(error);
+    console.log({height: height, attribute: attribute ?? null, event: event ?? null, log: log ?? null, data: theData});
+}

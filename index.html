@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>ThorChain &amp; Cosmos Tax Calculator</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Web3Tax.Info | CSV file of your blockchain transactions">
+    <meta name="twitter:description" content="Generate import-ready CSV file for THORChain, Cerberus, and Chihuahua.">
+    <meta name="twitter:site" content="@digitaladapt">
+    <meta name="twitter:creator" content="@digitaladapt">
+    <meta name="twitter:image" content="https://www.digitaladapt.com/web3tax.info.png"/>
     <!-- Begin Icons, thanks to https://realfavicongenerator.net/ -->
     <link rel="apple-touch-icon" sizes="180x180" href="https://www.digitaladapt.com/web3tax/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="https://www.digitaladapt.com/web3tax/favicon-32x32.png">
@@ -30,18 +36,18 @@
                             Generate import-ready CSV file of your blockchain transactions, just by entering your wallet addresses.
                         </p>
                         <form class="taxForm">
-                            <div class="field"><label class="label" for="chihuahua">HUAHUA</label><div class="control">
-                                <input type="text" id="chihuahua" name="chihuahua" class="input cosmosAddress" placeholder="chihuahua1..." autocomplete="on">
-                            </div></div>
-                            <div class="field"><label class="label" for="cerberus">CRBRUS</label><div class="control">
-                                <input type="text" id="cerberus" name="cerberus" class="input cosmosAddress" placeholder="cerberus1..." autocomplete="on">
-                            </div></div>
                             <div class="field"><label class="label" for="thor">THOR</label><div class="control">
                                 <input type="text" id="thor" name="thor" class="input thorAddress" placeholder="thor1..." autocomplete="on">
                             </div></div>
                             <div class="field"><label class="label" for="rune">THOR Related (BNB / BTC / LTC / BCH / ETH / DOGE / TERRA)</label><div class="control thorGuess">
                                 <textarea id="rune" name="rune" rows="7" class="thorRelated textarea" placeholder="bnb1..." autocomplete="on"></textarea>
                             </div><p class="help">At least one space, comma, or newline between addresses.</p></div>
+                            <div class="field"><label class="label" for="cerberus">CRBRUS</label><div class="control">
+                                <input type="text" id="cerberus" name="cerberus" class="input cosmosAddress" placeholder="cerberus1..." autocomplete="on">
+                            </div></div>
+                            <div class="field"><label class="label" for="chihuahua">HUAHUA</label><div class="control">
+                                <input type="text" id="chihuahua" name="chihuahua" class="input cosmosAddress" placeholder="chihuahua1..." autocomplete="on">
+                            </div></div>
                             <div class="field"><div class="control">
                                 <label class="label" for="costBasisMethod">Cost Basis Method <span class="tag is-link has-text-weight-normal">this should match what your tax software is set to</span></label>
                                 <div class="select"><select name="opt-method" id="costBasisMethod">

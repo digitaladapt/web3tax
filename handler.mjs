@@ -258,6 +258,28 @@ export const fetchReport = async (event) => {
                     }
                 };
                 break;
+            case 'taxbit':
+                keys  = ['date', 'type', 'sellAmount', 'sellCurr', 'sellSource', 'buyAmount', 'buyCurr', 'buySource', 'fee', 'feeCurr', 'exchangeID', 'txID'];
+                base  = { sellSource: null, buySource: null, exchangeID: null };
+                lines = ['Date and Time,Transaction Type,Sent Quantity,Sent Currency,Sending Source,Received Quantity,Received Currency,Receiving Destination,Fee,Fee Currency,Exchange Transaction ID,Blockchain Transaction Hash'];
+                fix   = {
+                    find: '',
+                    replace: '',
+                    prepare: (record) => {
+                        // YYYY-MM-DDTHH:MM:SSZ date format
+                        record.date = record.date.replace(' ', 'T') + 'Z';
+                        switch (record.type) {
+                            case 'Deposit':
+                                record.type = 'Transfer In';
+                                record.buySource = record.baseCurr;
+                                break;
+                            /* TODO: types: Buy, Transfer In, Trade, Transfer Out, Sale, Income, Expense, Gifts */
+                        }
+
+                        return record;
+                    }
+                };
+                break;
         }
 
         for (const record of transactions) {

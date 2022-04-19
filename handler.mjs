@@ -113,25 +113,49 @@ export const findRelated = async (event) => {
     return formatError('Invalid Request', null, { wallets: [] });
 };
 
-export const donations = async (event) => {
-    let page = 0;
-    let count = -1;
-    let total = 0;
-    do {
-        page++;
-        const program = 'curl "https://thornode.ninerealms.com/txs?limit=50&message.action=send&transfer.recipient=thor1vkevvt4u0t7yra4xfk79hy7er38462w8yszx8y&page={PAGE}" | jq .txs[].tx.value.msg[].value.amount[].amount,.total_count'.replace('{PAGE}', String(page));
-        try {
-            const { stdout } = await execPromise(program);
-            const recieved = JSON.parse('[' + stdout.replace(/\n/g, ',') + '""]');
-            recieved.pop(); // blank final element to handle trailing comma
-            count = recieved.pop(); // last element is total_count
-            for (const element of recieved) {
-                total += Number(element) / BASE_OFFSET;
-            }
-        } catch (error) {
+export const donations = async (event, context, callback) => {
+    const redis = await getRedis();
+
+    // serve up whatever data we currently have, so we're always fast
+    const updated = Number(await redis.get('timestamp_web3tax_donations'));
+    let output = await redis.get('current_web3tax_donations');
+    if ( ! output) {
+        output = '{"total":null}';
+    }
+    callback(null, formatSuccess(JSON.parse(output)));
+
+    // if the data we currently have is outdated, fix it
+    if (updated + 3600 < Date.now()) {
+        const programs = [
+            'curl "https://thornode.ninerealms.com/txs?limit=50&message.action=send&transfer.recipient=thor1vkevvt4u0t7yra4xfk79hy7er38462w8yszx8y&page={PAGE}" | jq .txs[].tx.value.msg[].value.amount[].amount,.total_count',
+            'curl "https://midgard.thorchain.info/v2/actions?limit=50&offset={OFFSET}&address=thor1vkevvt4u0t7yra4xfk79hy7er38462w8yszx8y,bnb1v54rp3w9h2hlresmvl0msf4vycnvnuc7nyp6cr,bc1ql7a704xh4ptzcvm8lx6r8hwxcmau09dul6yh7y,ltc1qzw06k68yesj62ja0z9p4s527et496tdtstxvs5,qzcxt5hl30yk3w052n3x6wjvky9rwn0p6guz95qmje,0x165d707704716b02c050935F8Ce6E0429C9829e6,DAN3K84Bn697mFK6GJ27EmZVuyop9vNMwZ,terra1t8magaxn4q6jllgx4hregjh4gtn2k96caqmd7p" | jq \'(.actions[].out[].coins[] | select(.asset == "THOR.RUNE").amount),.count\'',
+        ];
+        let total = 0;
+        for (const theProgram of programs) {
+            let page = 0;
+            let offset = 0;
+            let count = -1;
+            do {
+                offset = page * 50;
+                page++;
+                const program = theProgram.replace('{PAGE}', String(page)).replace('{OFFSET}', String(offset));
+                try {
+                    const {stdout} = await execPromise(program);
+                    const received = JSON.parse('[' + stdout.replace(/\n/g, ',') + '""]');
+                    received.pop(); // blank final element to handle trailing comma
+                    count = received.pop(); // last element is total_count
+                    for (const element of received) {
+                        total += Number(element) / BASE_OFFSET;
+                    }
+                } catch (error) {
+                    // should probably note the error
+                    break;
+                }
+            } while (page * 50 < count);
         }
-    } while (page * 50 < count);
-    return formatSuccess({ total: total });
+        await redis.set('current_web3tax_donations', JSON.stringify({ total: total }));
+        await redis.set('timestamp_web3tax_donations', Date.now());
+    }
 };
 
 export const fetchReport = async (event) => {

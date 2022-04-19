@@ -54,7 +54,7 @@ const server = http.createServer((req, res) => {
         case '/donations':
             donations({
                 queryStringParameters: query,
-            }).then((output) => {
+            }, null, (error, output) => {
                 res.end(output.body);
             });
             break;

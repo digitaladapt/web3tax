@@ -102,22 +102,23 @@
                 </div>
                 <div class="column">
                     <div class="box content">
-                        <h2>Delegate $LUM, $CRBRUS, and $HUAHUA</h2>
+                        <h2>Delegate $LUM, and $CRBRUS<!-- , and $HUAHUA --></h2>
                         <p>As part of our expanding into the Cosmos Universe of blockchains, we've
                             setup validators that people can delegate to, on a few different blockchains,
                             as another way people can support the project. Currently, we have:
-                            <a href="https://lum.network/" target="_blank">Lum Network</a>,
-                            <a href="https://cerberus.zone/" target="_blank">Cerberus</a>, and
-                            <a href="https://chihuahua.wtf/" target="_blank">Chihuahua</a>.
+                            <a href="https://lum.network/" target="_blank">Lum Network</a>, and
+                            <a href="https://cerberus.zone/" target="_blank">Cerberus</a>.<!-- , and
+                            <a href="https://chihuahua.wtf/" target="_blank">Chihuahua</a>. -->
                         </p>
                         <ul>
                             <li><a href="https://explorer.lum.network/validators/lumvaloper1krkmg6f0sjwalkx3nq39yt0upxgys7alme6lps" target="_blank">Stake on Lum Network</a>
                                 (<a href="https://restake.app/lumnetwork" target="_blank">Restake.app</a>)</li>
                             <li><a href="https://stake.cerberus.zone/" target="_blank">Stake on Cerberus</a>
                                 (<a href="https://restake.app/cerberus" target="_blank">Restake.app</a>)</li>
-                            <li><span class="untilActive" style="text-decoration: line-through;"><a href="https://chihuahua.omniflix.co/stake" target="_blank">Stake on Chihuahua</a>
-                                (<a href="https://restake.app/chihuahua" target="_blank">Restake.app</a>)</span></li>
+                            <!-- <li><span class="untilActive" style="text-decoration: line-through;"><a href="https://chihuahua.omniflix.co/stake" target="_blank">Stake on Chihuahua</a>
+                                (<a href="https://restake.app/chihuahua" target="_blank">Restake.app</a>)</span></li> -->
                         </ul>
+                        <!--
                         <p class="onceActive is-hidden">Help get our Chihuahua validator reach our goal:</p>
                         <p class="whileInactive">Help get our Chihuahua validator back in the active set:</p>
                         <div class="progressText has-text-centered"></div>
@@ -130,6 +131,7 @@
                                 <li><a href="https://apps.apple.com/app/cosmostation/id1459830339" target="_blank">Cosmostation for iPhone</a></li>
                             </ul>
                         </div>
+                        -->
                     </div>
                     <div class="box content">
                         <h2>Donate</h2>
@@ -143,7 +145,7 @@
                                   <figcaption>ThorChain</figcaption>
                                   <img src="https://www.digitaladapt.com/thor.png" alt="thor1vkevvt4u0t7yra4xfk79hy7er38462w8yszx8y">
                                 </figure>
-                            </div><div class="level-item has-text-centered">
+                            </div><!-- <div class="level-item has-text-centered">
                                 <figure>
                                   <figcaption>Lum Network</figcaption>
                                   <img src="https://www.digitaladapt.com/lum.png" alt="lum1wkzpd9uxftghyweh0dd4v58x727ugvqk59t7xq">
@@ -153,12 +155,12 @@
                                   <figcaption>Cerberus</figcaption>
                                   <img src="https://www.digitaladapt.com/cerberus.png" alt="cerberus1wkzpd9uxftghyweh0dd4v58x727ugvqkagk7xl">
                                 </figure>
-                            </div>
+                            </div> -->
                         </div>
                         <ul>
                             <li><strong>thor1vkevvt4u0t7yra4xf<wbr>k79hy7er38462w8yszx8y</strong> (RUNE)</li>
-                            <li><strong>lum1wkzpd9uxftghyweh0d<wbr>d4v58x727ugvqk59t7xq</strong> (LUM)</li>
-                            <li><strong>cerberus1wkzpd9uxftghy<wbr>weh0dd4v58x727ugvqkagk7xl</strong> (CRBRUS)</li>
+                            <li class="is-hidden donateMore"><strong>lum1wkzpd9uxftghyweh0d<wbr>d4v58x727ugvqk59t7xq</strong> (LUM)</li>
+                            <li class="is-hidden donateMore"><strong>cerberus1wkzpd9uxftghy<wbr>weh0dd4v58x727ugvqkagk7xl</strong> (CRBRUS)</li>
                             <li class="is-hidden donateMore"><strong>bc1ql7a704xh4ptzcvm8lx<wbr>6r8hwxcmau09dul6yh7y</strong> (BTC)</li>
                             <li class="is-hidden donateMore"><strong>bnb1v54rp3w9h2hlresmvl<wbr>0msf4vycnvnuc7nyp6cr</strong> (BNB)</li>
                             <li class="is-hidden donateMore"><strong>ltc1qzw06k68yesj62ja0z<wbr>9p4s527et496tdtstxvs5</strong> (LTC)</li>
@@ -169,6 +171,9 @@
                             <li class="is-hidden donateMore"><strong>chihuahua1wkzpd9uxftgh<wbr>yweh0dd4v58x727ugvqkz6mejk</strong> (HUAHUA)</li>
                         </ul>
                         <button type="button" class="button is-small is-success showMore">Show More</button>
+                        <!-- donation progress bar -->
+                        <div class="pt-4 progressText has-text-centered"></div>
+                        <progress class="progress is-hidden" value="0" max="1000"></progress>
                     </div>
                     <div class="box content">
                         <h2>Give Feedback</h2>
@@ -217,6 +222,8 @@
             let $thorAddress = $('.thorAddress');
             let $cosmosAddress = $('.cosmosAddress');
 
+            // sync url and fields, so users can easily bookmark the page and remember their addresses and settings
+
             let updates = false;
             for (const [key, value] of (new URLSearchParams(window.location.search)).entries()) {
                 if (key === 'opt-separate') {
@@ -234,6 +241,11 @@
             if (updates) {
                 $taxForm.trigger('change');
             }
+            $taxForm.on('change', () => {
+                window.history.pushState({}, '', '/?' + $taxForm.serialize());
+            });
+
+            // expand/collapse extra donate addresses
 
             $showMore.on('click', () => {
                 if ($showMore.hasClass('showLess')) {
@@ -245,11 +257,8 @@
                 }
             });
 
-            $taxForm.on('change', () => {
-                window.history.pushState({}, '', '/?' + $taxForm.serialize());
-            });
-
             // trade-group field appears or hides depending on what format is selected
+
             const manageGroup = (event) => {
                 if ($(event.target.selectedOptions[0]).hasClass('showGroup')) {
                     $('.taxGroup').removeClass('is-hidden');
@@ -261,6 +270,7 @@
             $('.taxFormat').on('change', manageGroup);
 
             // handle submit addresses request
+
             $('.taxGo').on('click', () => {
                 const updateStatus = () => {
                     $.getJSON('//' + window.location.host + '/status?key=' + key, (theStatus) => {
@@ -300,6 +310,7 @@
             });
 
             // cosmos auto-complete
+
             $cosmosAddress.on('blur', (event) => {
                 let address = $(event.target).val();
                 updates = false;
@@ -313,16 +324,9 @@
                     $taxForm.trigger('change');
                 }
             });
-            /*
-    function btnConvert_onClick() {
-      var address = document.getElementById("address").value;
-      var prefix = document.getElementById("prefix").value;
-      var output = lookup(address, prefix); // use this "lookup" function in browser
-      document.getElementById("output").innerHTML = output;
-    }
-             */
 
             // thor auto-complete
+
             $thorAddress.on('blur', () => {
                 if ($('.thorRelated').val() === '') {
                     $('.thorGuess').addClass('is-loading');
@@ -337,6 +341,7 @@
             });
 
             // lp stuff
+
             let $lpResults = $('.lpResults');
 
             $('.lpStatus').on('click', () => {
@@ -404,22 +409,36 @@
                 });
             });
 
-            // chihuahua progress bar
-            $.get('//' + window.location.host + '/minimum.txt', (min) => {
-                min = Math.round(Number(min) / 1000000);
-                $.getJSON('//' + window.location.host + '/validator.json', (data) => {
-                    let current = Math.round(Number(data.validator.tokens) / 1000000);
-                    let goal    = 17000000;
-                    let percent = (current / goal * 100).toFixed(3) + '%';
-                    $('.progress').removeClass('is-hidden').text(percent).val(current);
-                    $('.progressText').text(current.toLocaleString() + ' / ' + goal.toLocaleString() + ' HUAHUA (' + percent + ')');
-                    if (current >= min) {
-                        $('.untilActive').css('text-decoration', 'none');
-                        $('.whileInactive').addClass('is-hidden');
-                        $('.onceActive').removeClass('is-hidden');
-                    }
-                });
+            // // chihuahua progress bar
+            //
+            // $.get('//' + window.location.host + '/minimum.txt', (min) => {
+            //     min = Math.round(Number(min) / 1000000);
+            //     $.getJSON('//' + window.location.host + '/validator.json', (data) => {
+            //         let current = Math.round(Number(data.validator.tokens) / 1000000);
+            //         let goal    = 17000000;
+            //         let percent = (current / goal * 100).toFixed(3) + '%';
+            //         $('.progress').removeClass('is-hidden').text(percent).val(current);
+            //         $('.progressText').text(current.toLocaleString() + ' / ' + goal.toLocaleString() + ' HUAHUA (' + percent + ')');
+            //         if (current >= min) {
+            //             $('.untilActive').css('text-decoration', 'none');
+            //             $('.whileInactive').addClass('is-hidden');
+            //             $('.onceActive').removeClass('is-hidden');
+            //         }
+            //     });
+            // });
+
+            // donation progress bar
+
+            $.getJSON('//' + window.location.host + '/donations', (donations) => {
+                if (typeof donations.total === 'number') {
+                    let goal = 1000.0; // RUNE
+                    let percent = (donations.total / goal * 100).toFixed(3) + '%';
+                    $('.progress').removeClass('is-hidden').text(percent).val(donations.total);
+                    $('.progressText').text('Donation Goal Progress: ' + donations.total.toLocaleString() + ' / ' +
+                        goal.toLocaleString() + ' RUNE (' + percent + ')');
+                }
             });
+
         });
     </script>
 </body>

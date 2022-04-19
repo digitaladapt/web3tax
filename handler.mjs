@@ -314,14 +314,19 @@ export const fetchReport = async (event) => {
                     prepare: (record) => {
                         // YYYY-MM-DDTHH:MM:SSZ date format
                         record.date = record.date.replace(' ', 'T') + 'Z';
-                        switch (record.type) {
-                            case 'Deposit':
-                                record.type = 'Transfer In';
-                                record.buySource = record.baseCurr;
-                                break;
-                            /* TODO: types: Buy, Transfer In, Trade, Transfer Out, Sale, Income, Expense, Gifts */
+                        if (record.buyCurr) {
+                            record.buySource = (record.meta.isCosmosTx ? record.buyCurr : 'THOR') + ' Wallet';
                         }
-
+                        if (record.sellCurr) {
+                            record.sellSource = (record.meta.isCosmosTx ? record.sellCurr : 'THOR') + ' Wallet';
+                        }
+                        switch (record.type) {
+                            case 'Deposit':    record.type = 'Transfer In';  break;
+                            case 'Withdrawal': record.type = 'Transfer Out'; break;
+                            case 'Staking':    record.type = 'Income';       break;
+                            case 'Lost':       record.type = 'Expense';      break;
+                            case 'Other Fee':  record.type = 'Expense';      break;
+                        }
                         return record;
                     }
                 };

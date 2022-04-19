@@ -551,6 +551,7 @@ export const runDownload = async (redis, key, wallets, config) => {
             const network = wallet.split('1')[0]; // "chihuahua1sv0..." into just "chihuahua"
             const limit = Number(process.env[network + '_LIMIT']);
             let runAdditional = false;
+            // TODO FUTURE: optimize, some values of "first", will *never* have results for direction "transfer.recipient"
             for (const direction of ['message.sender', 'transfer.recipient']) {
                 let page = 0;
                 let count = -1;
@@ -570,8 +571,6 @@ export const runDownload = async (redis, key, wallets, config) => {
             }
         };
 
-        // TODO from here, need to handle direction, and verify that this stuff is working
-        // TODO because it doesn't seem like I'm getting all the transactions...
         for (const wallet of wallets[COSMOS_TAG]) {
             for (const [first, additional] of cosmosGroups) {
                 promises.push(cosmosLoop(wallet, first, additional));

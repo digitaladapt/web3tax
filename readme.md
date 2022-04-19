@@ -18,6 +18,7 @@ ThorChain Midgard API parser written in NodeJS, with long-term plans of becoming
 * 28th, Mar, 2022: Chihuahua and Cerberus chains are now tentatively supported.
 * 9th, Apr, 2022: Reported previously missed ThorChain transaction hashes.
 * 9th, Apr, 2022: UI/UX updates, auto-complete related addresses.
+* 19th, Apr, 2022: Added support for TaxBit CSV format.
 ### Roadmap ###
 ThorChain related improvements (in no particular order)
 * fix rare edge-case bug: very large swaps with multiple output transactions, second output currently gets ignored.

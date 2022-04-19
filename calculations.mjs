@@ -372,6 +372,9 @@ export function Calculation(redis, key, action, config) {
 
     /* save this object into redis, each "record" is the data for a single line in the resulting CSV file */
     this.storeRecord = async (record) => {
+        record.meta = {
+            isCosmosTx: Boolean(this.action.isCosmosTx ?? false),
+        };
         await this.redis.rPush(this.key + '_record', JSON.stringify(record));
 
         // whenever we store a new thing, we need to set the expiration

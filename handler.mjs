@@ -166,7 +166,7 @@ export const fetchReport = async (event) => {
     const redis = await getRedis();
 
     if (await redis.exists(key + '_status')) {
-        // get all the transactions (they are currently JSON strings
+        // get all the transactions (they are currently JSON strings)
         const transactions = await redis.lRange(key + '_record', 0, -1);
         await redis.quit();
 
@@ -175,28 +175,31 @@ export const fetchReport = async (event) => {
         let keys  = ['date', 'sellAmount', 'sellCurr', 'buyAmount', 'buyCurr', 'fee', 'feeCurr', 'netAmount', 'netCurr', 'type', 'comment', 'txID'];
         let base  = { netAmount: null, netCurr: null };
         let lines = ['Date,Sent Amount,Sent Currency,Received Amount,Received Currency,Fee Amount,Fee Currency,Net Worth Amount,Net Worth Currency,Label,Description,TxHash'];
-        // re-categorize with the correct keywords
-        // TODO use the prepare instead of find/replace, better way to handle these changes
         let fix   = {
-            find: /,Withdrawal,Sent|,Deposit,Received|,Trade,|,Deposit,|,Withdrawal,|,Staking,|,Lost,/g,
-            replace: (found) => {
-                switch (found) {
-                    case ',Withdrawal,Sent': // label depends on description
-                        return ',to_pool,Sent';
-                    case ',Deposit,Received': // label depends on description
-                        return ',from_pool,Received';
-                    case ',Trade,':
-                    case ',Deposit,':
-                    case ',Withdrawal,':
-                        return ',,';
-                    case ',Staking,':
-                        return ',reward,';
-                    case ',Lost,':
-                        return ',lost,';
-                }
-            },
+            find: '',
+            replace: '',
             prepare: (record) => {
+                // suffix date format with UTC
                 record.date += ' UTC';
+                if (record.comment?.startsWith('Sent to Pool')) {
+                    record.type = 'to_pool';
+                } else if (record.comment?.startsWith('Received from Pool')) {
+                    record.type = 'from_pool';
+                } else {
+                    switch (record.type) {
+                        case 'Trade':
+                        case 'Deposit':
+                        case 'Withdrawal':
+                            record.type = null;
+                            break;
+                        case 'Staking':
+                            record.type = 'reward';
+                            break;
+                        case 'Lost':
+                            record.type = 'lost';
+                            break;
+                    }
+                }
                 return record;
             }
         };
@@ -207,27 +210,31 @@ export const fetchReport = async (event) => {
                 keys  = ['type', 'buyAmount', 'buyCurr', 'sellAmount', 'sellCurr', 'fee', 'feeCurr', 'exchange', 'tradeGroup', 'comment', 'date', 'txID'];
                 base  = { exchange: 'thor', tradeGroup: group };
                 lines = ['Type,Buy Amount,Buy Currency,Sell Amount,Sell Currency,Fee,Fee Currency,Exchange,Trade-Group,Comment,Date,Tx-ID'];
-                // DD.MM.YYYY date format
-                // TODO use the prepare instead of find/replace, better way to handle these changes
                 fix   = {
-                    find: /,(\d{4})-(\d{2})-(\d{2}) |,THOR,|,RUNE-[ETHB1A]{3},/g,
-                    replace: (found) => {
-                        if (/,(\d{4})-(\d{2})-(\d{2}) /.test(found)) {
-                            return found.replace(/,(\d{4})-(\d{2})-(\d{2}) /, ",$3.$2.$1 ");
+                    find: '',
+                    replace: '',
+                    prepare: (record) => {
+                        // DD.MM.YYYY date format
+                        record.date.replace(/,(\d{4})-(\d{2})-(\d{2}) /, ",$3.$2.$1 ");
+                        for (const curr of ['buyCurr', 'sellCurr', 'feeCurr']) {
+                            switch (record[curr]) {
+                                case 'THOR':
+                                    // the only "THOR" coin is THORSwap
+                                    record[curr] = 'THOR2';
+                                    break;
+                                case 'LUNA':
+                                    // the only "LUNA" coin is Terra's Luna
+                                    record[curr] = 'LUNA2';
+                                    break;
+                                case 'RUNE-B1A':
+                                case 'RUNE-ETH':
+                                    // the only "RUNE" coin is THORChain
+                                    record[curr] = 'RUNE2';
+                                    break;
+                            }
                         }
-                        switch (found) {
-                            case ',THOR,':
-                                // the only "THOR" coin is THORSwap
-                                return ',THOR2,';
-                            case ',LUNA,':
-                                // the only "LUNA" coin is Terra's Luna
-                                return ',LUNA2,';
-                            case ',RUNE-B1A,':
-                            case ',RUNE-ETH,':
-                                return ',RUNE2,';
-                        }
-                    },
-                    prepare: (record) => record
+                        return record;
+                    }
                 };
                 break;
             // https://help.cointracker.io/en/articles/5172429-converting-transaction-history-csvs-to-the-cointracker-csv-format
@@ -235,27 +242,27 @@ export const fetchReport = async (event) => {
                 keys  = ['date', 'buyAmount', 'buyCurr', 'sellAmount', 'sellCurr', 'fee', 'feeCurr', 'type'];
                 base  = {};
                 lines = ['Date,Received Quantity,Received Currency,Sent Quantity,Sent Currency,Fee Amount,Fee Currency,Tag'];
-                // MM/DD/YYYY date format
-                // re-categorize with the correct keywords
-                // TODO use the prepare instead of find/replace, better way to handle these changes
                 fix   = {
-                    find: /(\d{4})-(\d{2})-(\d{2}) |,Trade|,Deposit|,Withdrawal|,Staking|,Lost/g,
-                        replace: (found) => {
-                        if (/(\d{4})-(\d{2})-(\d{2}) /.test(found)) {
-                            return found.replace(/(\d{4})-(\d{2})-(\d{2}) /, "$2/$3/$1 ");
+                    find: '',
+                    replace: '',
+                    prepare: (record) => {
+                        // MM/DD/YYYY date format
+                        record.date = record.date.replace(/(\d{4})-(\d{2})-(\d{2}) /, "$2/$3/$1 ");
+                        switch (record.type) {
+                            case 'Trade':
+                            case 'Deposit':
+                            case 'Withdrawal':
+                                record.type = null;
+                                break;
+                            case 'Staking':
+                                record.type = 'staked';
+                                break;
+                            case 'Lost':
+                                record.type = 'lost';
+                                break;
                         }
-                        switch (found) {
-                            case ',Trade':
-                            case ',Deposit':
-                            case ',Withdrawal':
-                                return ',';
-                            case ',Staking':
-                                return ',staked';
-                            case ',Lost':
-                                return ',lost';
-                        }
-                    },
-                    prepare: (record) => record
+                        return record;
+                    }
                 };
                 break;
             // https://cryptotaxcalculator.io/guides/advanced-manual-csv-import/
@@ -304,6 +311,7 @@ export const fetchReport = async (event) => {
                     }
                 };
                 break;
+            // https://help.taxbit.com/hc/en-us/articles/360047756913-Importing-Transactions-Manually-with-a-CSV-File
             case 'taxbit':
                 keys  = ['date', 'type', 'sellAmount', 'sellCurr', 'sellSource', 'buyAmount', 'buyCurr', 'buySource', 'fee', 'feeCurr', 'exchangeID', 'txID'];
                 base  = { sellSource: null, buySource: null, exchangeID: null };

@@ -374,6 +374,43 @@ export function Calculation(redis, key, action, config) {
     this.storeRecord = async (record) => {
         record.meta = {
             isCosmosTx: Boolean(this.action.isCosmosTx ?? false),
+            // TODO midgard doesn't include affiliate data, except in rare cases.
+            // TODO accept that we have no easy way to identify what frontend might have been used (if any).
+            //
+            // NOTES flag thor as thorchain wallet, thorchain liquidity, or if we can identify,
+            // the specific frontend used..
+            // this is DefiSpot's "affiliate address"
+            // thor1zw97zhhgwy3u99rxpn7cyelj44y733ntgg30e8
+            // is almost never mentioned in midgard's output... nothing to do...
+            // unless we are going to use the thornode to get the raw memos and start reading transactions on a half dozen different chains..
+            //
+            // NOTES I think I also need to handle the whole affiliate fee thingy..
+            // this is only for a refunded affiliate fee swap --------------------------
+            // based on review of midgard output, the same TX repeats, but with different info..
+            // IE: the sum of the ins (across both) transactions is the amount the user actually sent in...
+            // if we can identify which action is reporting the affiliate, we could add that to the transaction fee of transfer-in..
+            // would like to see more transactions where it wasn't a refund.. because I think midgard may be reporting those special..
+            // nowhere within midgard does it mention the output being for affiliate,
+            // --------------------------
+            //
+            // NOTES this is a better example of swapping with affiliate fees...
+            // thor1f549j52q5f55nfy62u883kwen9xs7xavd3guew
+            // terra1ru0qxczc8423xj2g3ggggmp6cx84zg8zx9mr68
+            // and there is NOTHING mentioned in midgard, only see it because of viewblock.io..
+            // all but their first 3 transactions have the affiliate fee (defispot).
+            //
+            // NOTES also think I need to handle refunds better..
+            // currently I'm just skipping over them, along with "donate".. maybe that will be a gift-out sort of thing.
+            //
+            // if a swap or add-Liquidity may have an affiliate, which will be an unrelated thor address...
+            // so if given a swap which outputs to a thor address other than the ones given, it's a fee...
+            // example wallet where there have been affiliate fee filled swaps:
+            // thor1ny30v0qhjmjy92w223ugmxha0v5sp99vxkcq7p (TERRA, BNB, BCH, LTC)
+            // their related addresses:
+            // terra16fvywkmdj0e9chcukz06cxpwuxdfreu3lerl92
+            // bnb1yj0lz4vcjf04uf98mvltepzd7xwe9ymndex7vd
+            // qpl7u7uzehpgnhuvht09dwpwsqazmg9ugc4avpcn9v
+            // ltc1q4dt439h2pn6hzeacrr3vr0dlftcus5fwhtatwf
         };
         await this.redis.rPush(this.key + '_record', JSON.stringify(record));
 

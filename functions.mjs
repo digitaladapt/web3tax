@@ -677,6 +677,10 @@ export const runCalculate = async (redis, key, wallets, config) => {
             case 'switch':
                 await calc.logUpgrade();
                 break;
+            default:
+                // TODO actually handle "refund" and "donate".
+                console.log('Skipping over thor.' + action.type);
+                break;
         }
 
         // console.log('--------------');

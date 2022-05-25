@@ -10,6 +10,7 @@ const port = Number(process.env.PORT);
 
 let indexPage = '';
 let convertScript = '';
+let keybaseProof = '';
 
 const server = http.createServer((req, res) => {
     res.statusCode = 200;
@@ -33,6 +34,10 @@ const server = http.createServer((req, res) => {
         case '/convert-address.js':
             res.setHeader('Content-Type', 'application/javascript');
             res.end(convertScript);
+            break;
+        case '/keybase.txt':
+            res.setHeader('Content-Type', 'text/plain');
+            res.end(keybaseProof);
             break;
         case '/generate':
             console.log('generate|' + Date.now() + '|' + JSON.stringify(query));
@@ -104,6 +109,14 @@ fs.readFile('./convert-address.js', (error, buffer) => {
     }
     convertScript = buffer.toString();
     console.log('successfully loaded convert-address.js');
+});
+
+fs.readFile('./keybase.txt', (error, buffer) => {
+    if (error) {
+        throw error;
+    }
+    keybaseProof = buffer.toString();
+    console.log('successfully loaded keybase.txt');
 });
 
 await loadNodes('chihuahua');

@@ -1,0 +1,56 @@
+==================================================================
+https://keybase.io/digitaladapt
+--------------------------------------------------------------------
+
+I hereby claim:
+
+  * I am an admin of https://web3tax.info
+  * I am digitaladapt (https://keybase.io/digitaladapt) on keybase.
+  * I have a public key ASAc8W7belHUkKFyv9OMAHKGtNwc2jSjXA-uk2IgZfxp-go
+
+To do so, I am signing this object:
+
+{
+  "body": {
+    "key": {
+      "eldest_kid": "01206553ecc3e03d27a6c2e2ddd710fe8e0eb3163216685490d33f1104f1bcb3971f0a",
+      "host": "keybase.io",
+      "kid": "01201cf16edb7a51d490a172bfd38c007286b4dc1cda34a35c0fae93622065fc69fa0a",
+      "uid": "2bcb4b8e9eabbea6d7f45664b71bcf19",
+      "username": "digitaladapt"
+    },
+    "merkle_root": {
+      "ctime": 1653495568,
+      "hash": "58be54bb6b536cf76a4a82ff0a500c766f27a777c47e37527db4d3c9d4eb13df03c0024ee624053a1129da7a21960bffb31b22a64645cce5972203d7455c7050",
+      "hash_meta": "f133be5c0b914b3bb4da1e827412e41e38bd578f2b97376bcdeea056060ffd0a",
+      "seqno": 22553664
+    },
+    "service": {
+      "entropy": "6KAq+M0qNDZMPOH8OKJue+Fg",
+      "hostname": "web3tax.info",
+      "protocol": "https:"
+    },
+    "type": "web_service_binding",
+    "version": 2
+  },
+  "client": {
+    "name": "keybase.io go client",
+    "version": "5.9.3"
+  },
+  "ctime": 1653495617,
+  "expire_in": 504576000,
+  "prev": "9d91ce7959dd20ac4f44abab68434be6acedee32afb86b6d2a2e838fb16431fb",
+  "seqno": 85,
+  "tag": "signature"
+}
+
+which yields the signature:
+
+hKRib2R5hqhkZXRhY2hlZMOpaGFzaF90eXBlCqNrZXnEIwEgHPFu23pR1JChcr/TjAByhrTcHNo0o1wPrpNiIGX8afoKp3BheWxvYWTESpcCVcQgnZHOeVndIKxPRKuraENL5qzt7jKvuGttKi6Dj7FkMfvEIEYJId3Mz16iO+jd9AQ53IjlTtR7pP8SXvU8JT95XU0cAgHCo3NpZ8RArHK4weftPQ/aMz5vNwhpZaRI3zDLSpGBibhBhn0VWndvyHnrXmYR1AFSdHKIHaCSN4hUyLLzwZpQL53iSIkjCqhzaWdfdHlwZSCkaGFzaIKkdHlwZQildmFsdWXEIIv38uTbG+C36M2p14dayPExNSIO8csOTTiy8pQYpH0do3RhZ80CAqd2ZXJzaW9uAQ==
+
+And finally, I am proving ownership of this host by posting or
+appending to this document.
+
+View my publicly-auditable identity here: https://keybase.io/digitaladapt
+
+==================================================================

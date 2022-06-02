@@ -17,6 +17,13 @@ const monkiers = {};
 
 // let printDetails = false; // for debugging
 
+// wait the given time in milliseconds
+export const sleep = async (millis) => {
+    return new Promise((resolve) => {
+        setTimeout(resolve, millis)
+    })
+}
+
 // format given date as "YYYY-MM-DD HH:MM:SS"
 export const formatDate = (date, offset) => {
     if (typeof offset !== 'number') {
@@ -118,6 +125,7 @@ const discordNow = async () => {
 export const midgard = async (wallets, pagination, addAction, setTotal) => {
     const url = process.env.MIDGARD_URL.replace('{WALLETS}', wallets.join(',')).replace('{OFFSET}', String(pagination * process.env.MIDGARD_LIMIT));
     // console.log('url: ' + url);
+    await sleep(1000);
     return await fetch(url).then((response) => {
         // console.log('response: fetch successful');
         return response.json();

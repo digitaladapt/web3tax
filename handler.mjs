@@ -27,6 +27,24 @@ export const loadIndex = async () => {
     }
 };
 
+export const loadConvert = async () => {
+    try {
+        return formatText(await fs.promises.readFile('./convert-address.js'));
+    } catch (error) {
+        console.log(error);
+        return formatText('var error = "Unable to load javascript content";');
+    }
+};
+
+export const loadProof = async () => {
+    try {
+        return formatText(await fs.promises.readFile('./keybase.txt'));
+    } catch (error) {
+        console.log(error);
+        return formatText('Unable to load keybase content');
+    }
+};
+
 // endpoint: kickoff process, start downloading actions from midgard into redis
 export const submitAddresses = async (event, context, callback) => {
     let wallets;

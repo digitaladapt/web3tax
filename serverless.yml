@@ -1,23 +1,32 @@
-service: thor-chain-tax
+service: web3tax
 
 # operations via serverless framework, mostly working, for an automatic AWS deployment.
 frameworkVersion: '2'
 
 provider:
   name: aws
-  runtime: nodejs14.x
+  runtime: nodejs16.x
   lambdaHashingVersion: 20201221
   region: us-east-1
   stage: development
   profile: default
   environment:
     PORT: 3000
-    TTL: 7200
+    TTL: 43200
     MIDGARD_LIMIT: 50
-    MIDGARD_URL: "https://midgard.thorchain.info/v2/actions?limit=50&address={WALLETS}&offset={OFFSET}"
+    MIDGARD_URL: "https://midgard.ninerealms.com/v2/actions?limit=50&address={WALLETS}&offset={OFFSET}"
+    THORNODE_LIMIT: 50
+    THORNODE_URL: "https://thornode.ninerealms.com/txs?limit=50&message.action=send&transfer.{DIRECTION}={WALLET}&page={PAGE}"
+    chihuahua_LIMIT: 100
+    chihuahua_URL: "https://lcd-chihuahua.cosmostation.io/cosmos/tx/v1beta1/txs?pagination.limit=100&pagination.offset={OFFSET}&events={DIRECTION}%3D%27{WALLET}%27&events=message.action%3D%27{ACTION}%27"
+    chihuahua_NODES: "https://api.chihuahua.wtf/cosmos/staking/v1beta1/validators?pagination.limit=500"
+    cerberus_LIMIT: 100
+    cerberus_URL: "https://lcd-cerberus.cosmostation.io/cosmos/tx/v1beta1/txs?pagination.limit=100&pagination.offset={OFFSET}&events={DIRECTION}%3D%27{WALLET}%27&events=message.action%3D%27{ACTION}%27"
+    cerberus_NODES: "https://lcd-cerberus.cosmostation.io/cosmos/staking/v1beta1/validators?pagination.limit=500"
     REDIS_PREFIX: "live_"
-    REDIS_ENDPOINT:
-      "Fn::Join": [":", ["Fn::GetAtt": [ServerlessElasticacheCluster, RedisEndpoint.Address], "Fn::GetAtt": [ServerlessElasticacheCluster, RedisEndpoint.Port]]]
+    REDIS_ENDPOINT: localhost:6379
+    #REDIS_ENDPOINT:
+    #  "Fn::Join": [":", ["Fn::GetAtt": [ServerlessElasticacheCluster, RedisEndpoint.Address], "Fn::GetAtt": [ServerlessElasticacheCluster, RedisEndpoint.Port]]]
 functions:
   loadIndex:
     handler: handler.loadIndex
@@ -30,6 +39,28 @@ functions:
       - httpApi:
           path: /
           method: get
+  loadConvert:
+    handler: handler.loadConvert
+    vpc:
+      securityGroupIds:
+        - "Fn::GetAtt": [ ServerlessSecurityGroup, GroupId ]
+      subnetIds:
+        - Ref: ServerlessPrivateSubnetA
+    events:
+      - httpApi:
+          path: /convert-address.js
+          method: get
+  loadProof:
+    handler: handler.loadProof
+    vpc:
+      securityGroupIds:
+        - "Fn::GetAtt": [ ServerlessSecurityGroup, GroupId ]
+      subnetIds:
+        - Ref: ServerlessPrivateSubnetA
+    events:
+      - httpApi:
+          path: /keybase.txt
+          method: get
   submitAddresses:
     handler: handler.submitAddresses
     vpc:
@@ -41,8 +72,30 @@ functions:
       - httpApi:
           path: /generate
           method: get
+  findRelated:
+    handler: handler.findRelated
+    vpc:
+      securityGroupIds:
+        - "Fn::GetAtt": [ ServerlessSecurityGroup, GroupId ]
+      subnetIds:
+        - Ref: ServerlessPrivateSubnetA
+    events:
+      - httpApi:
+          path: /guess
+          method: get
   getStatus:
     handler: handler.getStatus
+    vpc:
+      securityGroupIds:
+        - "Fn::GetAtt": [ ServerlessSecurityGroup, GroupId ]
+      subnetIds:
+        - Ref: ServerlessPrivateSubnetA
+    events:
+      - httpApi:
+          path: /status
+          method: get
+  donations:
+    handler: handler.donations
     vpc:
       securityGroupIds:
         - "Fn::GetAtt": [ ServerlessSecurityGroup, GroupId ]

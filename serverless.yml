@@ -14,7 +14,8 @@ provider:
     PORT: 3000
     TTL: 7200
     MIDGARD_LIMIT: 50
-    MIDGARD_URL: "https://midgard.thorchain.info/v2/actions?limit=50&address={WALLETS}&offset={OFFSET}"
+    MIDGARD_URL_A: "https://midgard.thorchain.info/v2/actions?limit=50&address={WALLETS}&offset={OFFSET}"
+    MIDGARD_URL_B: "https://midgard.ninerealms.com/v2/actions?limit=50&address={WALLETS}&offset={OFFSET}"
     REDIS_PREFIX: "live_"
     REDIS_ENDPOINT:
       "Fn::Join": [":", ["Fn::GetAtt": [ServerlessElasticacheCluster, RedisEndpoint.Address], "Fn::GetAtt": [ServerlessElasticacheCluster, RedisEndpoint.Port]]]

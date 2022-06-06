@@ -3,6 +3,7 @@
 import { exec } from 'child_process';
 import fetch from 'node-fetch';
 import { createClient } from 'redis';
+import redisLock from 'redis-lock';
 import crypto from 'crypto';
 import { BASE_OFFSET, Calculation } from "./calculations.mjs";
 import { Cosmos } from "./cosmos.mjs";
@@ -122,10 +123,13 @@ const discordNow = async () => {
 // gets transactions for specific page for the given wallet list: (["thor1..", "bnb1.."], 3)
 // pagination starts with 0 (zero)
 // addAction(action) and setCount(count) are callbacks
-export const midgard = async (wallets, pagination, addAction, setTotal) => {
-    const url = process.env.MIDGARD_URL.replace('{WALLETS}', wallets.join(',')).replace('{OFFSET}', String(pagination * process.env.MIDGARD_LIMIT));
+export const midgard = async (wallets, pagination, addAction, setTotal, repeated) => {
+    // alternate based on odd/even, so we effectively load balance between the two sources
+    // when repeating, use the other source instead of whatever would be normal
+    const url = (pagination + (typeof repeated === "boolean" && repeated ? 1 : 0)) % 2
+        ? process.env.MIDGARD_URL_A.replace('{WALLETS}', wallets.join(',')).replace('{OFFSET}', String(pagination * process.env.MIDGARD_LIMIT))
+        : process.env.MIDGARD_URL_B.replace('{WALLETS}', wallets.join(',')).replace('{OFFSET}', String(pagination * process.env.MIDGARD_LIMIT));
     // console.log('url: ' + url);
-    await sleep(1000);
     return await fetch(url).then((response) => {
         // console.log('response: fetch successful');
         return response.json();
@@ -136,7 +140,13 @@ export const midgard = async (wallets, pagination, addAction, setTotal) => {
         }
         return data.count;
     }).catch((error) => {
-        throw error;
+        if (typeof repeated === "boolean" && repeated) {
+            console.log('url alt error, stopping: ' + url);
+            throw error;
+        } else {
+            console.log('url main error, trying alt: ' + url);
+            return midgard(wallets, pagination, addAction, setTotal, true);
+        }
     });
 };
 
@@ -437,6 +447,7 @@ export const runProcess = async (redis, key, wallets, config) => {
 
 export const runDownload = async (redis, key, wallets, config) => {
     const promises = [];
+    const lock = redisLock(redis);
     let downloaded =  0;
     let total = {};
     let grand = 1;
@@ -523,8 +534,12 @@ export const runDownload = async (redis, key, wallets, config) => {
             let page = 0;
             let count = -1;
             do {
-                count = await midgard(wallets[RUNE_TAG], page, addAction, setTotal);
-                page++;
+                lock('midgard', 5000, async (done) => {
+                    await sleep(1000);
+                    count = await midgard(wallets[RUNE_TAG], page, addAction, setTotal);
+                    page++;
+                    done();
+                });
             } while (page * process.env.MIDGARD_LIMIT < count && page < PAGE_CAP);
         };
         promises.push(midgardLoop());
@@ -600,12 +615,12 @@ export const runCalculate = async (redis, key, wallets, config) => {
     let rowNumber = 0;
 
     // console.log('--------------');
-    // console.log(await redis.zRange(key + '_action', 0, 9999999999999));
+    // console.log(await redis.zRange(key + '_action', 0, -1));
     // console.log('--------------');
     // console.log(await redis.get(key + '_count'));
     // console.log('--------------');
 
-    for (const row of await redis.zRange(key + '_action', 0, 9999999999999)) {
+    for (const row of await redis.zRange(key + '_action', 0, -1)) {
         // process.stdout.write('^');
         rowNumber++;
         await redis.set(key + '_status', 'Final Phase, Processing ' + rowNumber + ' of ' + theCount);

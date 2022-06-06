@@ -3,7 +3,7 @@
 import { exec } from 'child_process';
 import fetch from 'node-fetch';
 import { createClient } from 'redis';
-import redisLock from 'redis-lock';
+import AsyncLock from 'async-lock';
 import crypto from 'crypto';
 import { BASE_OFFSET, Calculation } from "./calculations.mjs";
 import { Cosmos } from "./cosmos.mjs";
@@ -447,7 +447,7 @@ export const runProcess = async (redis, key, wallets, config) => {
 
 export const runDownload = async (redis, key, wallets, config) => {
     const promises = [];
-    const lock = redisLock(redis);
+    const lock = new AsyncLock({ timeout: 5000 });
     let downloaded =  0;
     let total = {};
     let grand = 1;
@@ -534,11 +534,12 @@ export const runDownload = async (redis, key, wallets, config) => {
             let page = 0;
             let count = -1;
             do {
-                lock('midgard', 5000, async (done) => {
+                lock.acquire('midgard', async () => {
                     await sleep(1000);
                     count = await midgard(wallets[RUNE_TAG], page, addAction, setTotal);
                     page++;
-                    done();
+                }).catch((error) => {
+                    throw error;
                 });
             } while (page * process.env.MIDGARD_LIMIT < count && page < PAGE_CAP);
         };

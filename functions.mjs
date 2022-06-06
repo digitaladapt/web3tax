@@ -534,7 +534,7 @@ export const runDownload = async (redis, key, wallets, config) => {
             let page = 0;
             let count = -1;
             do {
-                lock.acquire('midgard', async () => {
+                await lock.acquire('midgard', async () => {
                     await sleep(1000);
                     count = await midgard(wallets[RUNE_TAG], page, addAction, setTotal);
                     page++;

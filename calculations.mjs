@@ -580,7 +580,7 @@ export function Calculation(redis, key, action, config) {
                         ...this.actionFee(buyCurr, skipFee),
             comment:    'Profit from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
             date:       formatDate(this.action.date, 1),
-            txID:       this.inMatch(buyCurr),
+            txID:       this.inMatch(buyCurr).txID,
         });
     };
 
@@ -595,7 +595,7 @@ export function Calculation(redis, key, action, config) {
                         ...this.actionFee(sellCurr, skipFee),
             comment:    'Loss from Pool: ' + chainToken(this.action.pools[0]) + '/THOR.RUNE',
             date:       formatDate(this.action.date, 1),
-            txID:       this.inMatch(sellCurr),
+            txID:       this.inMatch(sellCurr).txID,
         });
     };
 

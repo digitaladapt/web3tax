@@ -378,6 +378,11 @@ export const normalizeAddresses = (addresses) => {
                 wallets.add(address, COSMOS_TAG);
                 continue;
             }
+            // lum /^lum[a-z0-9]{38,90}$/
+            if (/^lum[a-z0-9]{38,90}$/.test(address)) {
+                wallets.add(address, COSMOS_TAG);
+                continue;
+            }
 
             errors.push(address);
         }

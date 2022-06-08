@@ -32,6 +32,9 @@ chihuahua_NODES='https://api.chihuahua.wtf/cosmos/staking/v1beta1/validators?pag
 cerberus_LIMIT=100 \
 cerberus_URL='https://lcd-cerberus.cosmostation.io/cosmos/tx/v1beta1/txs?pagination.limit=100&pagination.offset={OFFSET}&events={DIRECTION}%3D%27{WALLET}%27&events=message.action%3D%27{ACTION}%27' \
 cerberus_NODES='https://lcd-cerberus.cosmostation.io/cosmos/staking/v1beta1/validators?pagination.limit=500' \
+lum_LIMIT=100 \
+lum_URL='https://lcd-lum.cosmostation.io/cosmos/tx/v1beta1/txs?pagination.limit=100&pagination.offset={OFFSET}&events={DIRECTION}%3D%27{WALLET}%27&events=message.action%3D%27{ACTION}%27' \
+lum_NODES='https://lcd-lum.cosmostation.io/cosmos/staking/v1beta1/validators?pagination.limit=500' \
 PORT=3000 \
 TTL=43200 \
 /usr/bin/env node server.mjs 2>&1 | tee -a output.log

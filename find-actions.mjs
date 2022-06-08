@@ -4,14 +4,20 @@
 
 import fetch from "node-fetch";
 
-// chihuahua
+// // chihuahua
 // const baseUrl = 'https://api.mintscan.io/v1/chihuahua/block/chihuahua-1/{HEIGHT}';
 // const startHeight = 1516207;
-// cerberus
-const baseUrl = 'https://api.mintscan.io/v1/cerberus/block/cerberus-chain-1/{HEIGHT}';
-const startHeight = 241327;
-let height = startHeight;
+// // cerberus
+// const baseUrl = 'https://api.mintscan.io/v1/cerberus/block/cerberus-chain-1/{HEIGHT}';
+// const startHeight = 241327;
+// // lum
+const baseUrl = 'https://api-lum.cosmostation.io/v1/txs?limit=50&offset={OFFSET}';
+let offset = 0;
 let url;
+let empty = 0;
+let found = 0;
+let inaction = 0;
+let untyped = 0;
 const known = {
     // moving assets on chain
     '/cosmos.bank.v1beta1.MsgSend': true,
@@ -40,40 +46,57 @@ const known = {
     '/cosmos.authz.v1beta1.MsgRevoke': true, // need MsgGrant
     '/cosmos.authz.v1beta1.MsgExec': true, // need MsgGrant AND config.includeAuthz
 
+    // lum specific
+    'OpenBeam': true,
+
     // '/': true,
 };
 do {
-    url = baseUrl.replace('{HEIGHT}', String(height));
+    url = baseUrl.replace('{OFFSET}', String(offset)); //.replace('{HEIGHT}', String(height));
     await fetch(url, {headers: {"user-agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:98.0) Gecko/20100101 Firefox/98.0"}}).then((response) => {
         // console.log('response: fetch successful');
         return response.json();
     }).then(async (data) => {
-        for (const tx of data[0].txs) {
-            for (const log of tx.data.logs) {
-                for (const event of log.events) {
-                    if (event.type === 'message') {
-                        for (const attribute of event.attributes) {
-                            if (attribute.key === 'action') {
-                                if ( ! known[attribute.value]) {
-                                    known[attribute.value] = true;
-                                    console.log("--------");
-                                    console.log("Action : " + attribute.value);
-                                    console.log("Message: " + JSON.stringify(tx.data.tx.body.messages[log.msg_index]));
-                                    console.log("Events : " + JSON.stringify(log.events));
-                                    console.log("--------");
+        if (true) { //data.length > 0 && data[0] && data[0].hasOwnProperty('txs')) {
+            for (const tx of data) { //for (const tx of data[0].txs) {
+                for (const log of tx.data.logs) {
+                    for (const event of log.events) {
+                        if (event.type === 'message') {
+                            for (const attribute of event.attributes) {
+                                if (attribute.key === 'action') {
+                                    if (!known[attribute.value]) {
+                                        known[attribute.value] = true;
+                                        console.log("--------");
+                                        console.log("Action : " + attribute.value);
+                                        console.log("Message: " + JSON.stringify(tx.data.tx.body.messages[log.msg_index]));
+                                        console.log("Events : " + JSON.stringify(log.events));
+                                        console.log("--------");
+                                    } else {
+                                        found++;
+                                    }
+                                } else {
+                                    inaction++;
                                 }
                             }
+                        } else {
+                            untyped++;
                         }
                     }
                 }
             }
+        } else {
+            empty++;
         }
-        height--;
+        offset += 50; //height--;
     }).catch((error) => {
         throw error;
     });
     // periodic dot for monitoring the script, to make sure it's still looping successfully
-    if ((height % 10) === 0) {
-        process.stdout.write('.');
+    if (true) { //(height % 10) === 0) {
+        process.stdout.write(/* 'e' + empty + */ 'f' + found + 'i' + inaction + 'u' + untyped + '.');
+        empty = 0;
+        found = 0;
+        inaction = 0;
+        untyped = 0;
     }
-} while (height > 1 && startHeight - height < 14400);
+} while (offset < 10000); //} while (height > 1 && startHeight - height < 14400);

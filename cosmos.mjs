@@ -382,6 +382,10 @@ export function Cosmos(redis, key, action, config, wallets) {
                         await this.logTx(message.msgs, events, '0u'); // touch of recursion
                     }
                     break;
+                case '/lum.network.beam.MsgOpenBeam':
+                    // process.stdout.write('b');
+                    await this.logOtherFee('OpenBeam "' + message['schema'] + '" Transaction');
+                    break;
                 default:
                     discord("key: " + this.key + ", had an unknown transaction type: " + message['@type'] +
                         ", txhash: " + this.action.txhash + ", message: " + JSON.stringify(message) +

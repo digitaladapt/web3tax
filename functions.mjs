@@ -599,6 +599,10 @@ export const runDownload = async (redis, key, wallets, config) => {
             for (const [first, additional] of cosmosGroups) {
                 promises.push(cosmosLoop(wallet, first, additional));
             }
+            // FUTURE TODO: long term, a more elegant solution for chain specific additions
+            if (wallet.startsWith('lum1')) {
+                promises.push(cosmosLoop(wallet, 'OpenBeam', [])); // @type: "/lum.network.beam.MsgOpenBeam"
+            }
         }
     }
 

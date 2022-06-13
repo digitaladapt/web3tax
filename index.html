@@ -41,7 +41,7 @@
                             <div class="field"><label class="label" for="thor">THOR</label><div class="control">
                                 <input type="text" id="thor" name="thor" class="input thorAddress" placeholder="thor1..." autocomplete="on">
                             </div></div>
-                            <div class="field"><label class="label" for="rune">THOR Related (BTC / ETH / BNB / TERRA / DOGE / LTC / BCH)</label><div class="control thorGuess">
+                            <div class="field"><label class="label" for="rune">THOR Related (BTC / ETH / BNB / DOGE / etc.)</label><div class="control thorGuess">
                                 <textarea id="rune" name="rune" rows="7" class="thorRelated textarea" placeholder="bc1..., 0x..., bnb1..." autocomplete="on"></textarea>
                             </div><p class="help">At least one space, comma, or newline between addresses.</p></div>
                             <div class="field"><label class="label" for="chihuahua">HUAHUA</label><div class="control">
@@ -108,19 +108,22 @@
                 </div>
                 <div class="column">
                     <div class="box content">
-                        <h2>Delegate $LUM, and $CRBRUS<!-- , and $HUAHUA --></h2>
+                        <h2>Delegate $LUM, $CRBRUS, and $MEME<!-- , and $HUAHUA --></h2>
                         <p>As part of our expanding into the Cosmos Universe of blockchains, we've
                             setup validators that people can delegate to, on a few different blockchains,
                             as another way people can support the project. Currently, we have:
-                            <a href="https://lum.network/" target="_blank">Lum Network</a>, and
-                            <a href="https://cerberus.zone/" target="_blank">Cerberus</a>.<!-- , and
+                            <a href="https://lum.network/" target="_blank">Lum Network</a>,
+                            <a href="https://cerberus.zone/" target="_blank">Cerberus</a>,
+                            <a href="https://meme.sx/" target="_blank">Meme</a>.<!-- , and
                             <a href="https://chihuahua.wtf/" target="_blank">Chihuahua</a>. -->
                         </p>
                         <ul>
                             <li><a href="https://explorer.lum.network/validators/lumvaloper1krkmg6f0sjwalkx3nq39yt0upxgys7alme6lps" target="_blank">Stake on Lum Network</a>
                                 (<a href="https://restake.app/lumnetwork" target="_blank">Restake.app</a>)</li>
-                            <li><a href="https://stake.cerberus.zone/" target="_blank">Stake on Cerberus</a>
+                            <li><a href="https://stake.cerberus.zone/validators" target="_blank">Stake on Cerberus</a>
                                 (<a href="https://restake.app/cerberus" target="_blank">Restake.app</a>)</li>
+                            <li><a href="https://wallet.meme.sx/stake" target="_blank">Stake on Meme</a>
+                                (<a href="https://restake.app/meme" target="_blank">Restake.app</a>) *</li>
                             <!-- <li><span class="untilActive" style="text-decoration: line-through;"><a href="https://chihuahua.omniflix.co/stake" target="_blank">Stake on Chihuahua</a>
                                 (<a href="https://restake.app/chihuahua" target="_blank">Restake.app</a>)</span></li> -->
                         </ul>
@@ -167,17 +170,18 @@
                             <li><strong>thor1vkevvt4u0t7yra4xf<wbr>k79hy7er38462w8yszx8y</strong> (RUNE)</li>
                             <!-- thor related -->
                             <li class="is-hidden donateMore"><strong>bc1ql7a704xh4ptzcvm8lx<wbr>6r8hwxcmau09dul6yh7y</strong> (BTC)</li>
-                            <li class="is-hidden donateMore"><strong>0x165d707704716b02c050<wbr>935F8Ce6E0429C9829e6</strong> (AVAX,&nbsp;BSC,&nbsp;ETH,&nbsp;FTM,&nbsp;etc.)</li>
-                            <li class="is-hidden donateMore"><strong>bnb1v54rp3w9h2hlresmvl<wbr>0msf4vycnvnuc7nyp6cr</strong> (BNB)</li>
-                            <li class="is-hidden donateMore"><strong>terra1t8magaxn4q6jllgx<wbr>4hregjh4gtn2k96caqmd7p</strong> (LUNA,&nbsp;UST)</li>
-                            <li class="is-hidden donateMore"><strong>DAN3K84Bn697mFK6GJ27Em<wbr>ZVuyop9vNMwZ</strong> (DOGE)</li>
-                            <li class="is-hidden donateMore"><strong>ltc1qzw06k68yesj62ja0z<wbr>9p4s527et496tdtstxvs5</strong> (LTC)</li>
-                            <li class="is-hidden donateMore"><strong>qzcxt5hl30yk3w052n3x6w<wbr>jvky9rwn0p6guz95qmje</strong> (BCH)</li>
-                            <!-- cosmos related -->
-                            <li class="is-hidden donateMore"><strong>cosmos1wkzpd9uxftghywe<wbr>h0dd4v58x727ugvqkp0khn5</strong> (ATOM)</li>
+                            <!-- <li class="is-hidden donateMore"><strong>0x165d707704716b02c050<wbr>935F8Ce6E0429C9829e6</strong> (AVAX,&nbsp;BSC,&nbsp;ETH,&nbsp;FTM,&nbsp;etc.)</li> -->
+                            <!-- <li class="is-hidden donateMore"><strong>bnb1v54rp3w9h2hlresmvl<wbr>0msf4vycnvnuc7nyp6cr</strong> (BNB)</li> -->
+                            <!-- <li class="is-hidden donateMore"><strong>terra1t8magaxn4q6jllgx<wbr>4hregjh4gtn2k96caqmd7p</strong> (LUNA,&nbsp;UST)</li> -->
+                            <!-- <li class="is-hidden donateMore"><strong>DAN3K84Bn697mFK6GJ27Em<wbr>ZVuyop9vNMwZ</strong> (DOGE)</li> -->
+                            <!-- <li class="is-hidden donateMore"><strong>ltc1qzw06k68yesj62ja0z<wbr>9p4s527et496tdtstxvs5</strong> (LTC)</li> -->
+                            <!-- <li class="is-hidden donateMore"><strong>qzcxt5hl30yk3w052n3x6w<wbr>jvky9rwn0p6guz95qmje</strong> (BCH)</li> -->
+                            <!-- cosmos (validator) related -->
+                            <!-- <li class="is-hidden donateMore"><strong>cosmos1wkzpd9uxftghywe<wbr>h0dd4v58x727ugvqkp0khn5</strong> (ATOM)</li> -->
                             <li class="is-hidden donateMore"><strong>lum1wkzpd9uxftghyweh0d<wbr>d4v58x727ugvqk59t7xq</strong> (LUM)</li>
-                            <li class="is-hidden donateMore"><strong>chihuahua1wkzpd9uxftgh<wbr>yweh0dd4v58x727ugvqkz6mejk</strong> (HUAHUA)</li>
+                            <!-- <li class="is-hidden donateMore"><strong>chihuahua1wkzpd9uxftgh<wbr>yweh0dd4v58x727ugvqkz6mejk</strong> (HUAHUA)</li> -->
                             <li class="is-hidden donateMore"><strong>cerberus1wkzpd9uxftghy<wbr>weh0dd4v58x727ugvqkagk7xl</strong> (CRBRUS)</li>
+                            <li class="is-hidden donateMore"><strong>meme1wkzpd9uxftghyweh0<wbr>dd4v58x727ugvqklsqq57</strong> (MEME)</li>
                         </ul>
                         <button type="button" class="button is-small is-success showMore">Show More</button>
                         <!-- donation progress bar -->

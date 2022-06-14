@@ -223,6 +223,26 @@ export const fetchReport = async (event) => {
         };
 
         switch (format) {
+            case 'coinledger':
+                keys  = ['date','exchange','sellCurr','sellAmount','buyCurr','buyAmount','feeCurr','fee','type','comment','txID'];
+                base  = { exchange: 'thor' };
+                lines = ['Date (UTC),Platform (Optional),Asset Sent,Amount Sent,Asset Received,Amount Received,Fee Currency (Optional),Fee Amount (Optional),Type,Description (Optional),TxHash (Optional)'];
+                fix   = {
+                    find: '',
+                    replace: '',
+                    prepare: (record) => {
+                        // MM/DD/YYYY date format
+                        record.date = record.date.replace(/(\d{4})-(\d{2})-(\d{2}) /, "$2/$3/$1 ");
+                        switch (record.type) {
+                            case 'Other Fee':
+                            case 'Lost':
+                                record.type = 'Investment Loss';
+                                break;
+                        }
+                        return record;
+                    }
+                };
+                break;
             // https://cointracking.info/import/import_csv/
             case 'cointracking':
                 keys  = ['type', 'buyAmount', 'buyCurr', 'sellAmount', 'sellCurr', 'fee', 'feeCurr', 'exchange', 'tradeGroup', 'comment', 'date', 'txID'];

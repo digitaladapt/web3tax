@@ -223,6 +223,7 @@ export const fetchReport = async (event) => {
         };
 
         switch (format) {
+            // https://help.coinledger.io/en/articles/6028758-universal-manual-import-template-guide
             case 'coinledger':
                 keys  = ['date','exchange','sellCurr','sellAmount','buyCurr','buyAmount','feeCurr','fee','type','comment','txID'];
                 base  = { exchange: 'thor' };

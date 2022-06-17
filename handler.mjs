@@ -176,6 +176,24 @@ export const donations = async (event, context, callback) => {
     }
 };
 
+// adjust assets to handle the fact that all terra tokens are the classic,
+// should ThorChain ever want to add the new terra phoenix chain,
+// we'd have to check block height or something.
+const terraClassic = (record) => {
+    for (const curr of ['buyCurr', 'sellCurr', 'feeCurr']) {
+        switch (record[curr]) {
+            case 'UST':
+                // the only "UST" coin is Classic Terra's USD
+                record[curr] = 'USTC';
+                break;
+            case 'LUNA':
+                // the only "LUNA" coin is Classic Terra's Luna
+                record[curr] = 'LUNC';
+        }
+    }
+    return record;
+};
+
 export const fetchReport = async (event) => {
     const key = event.queryStringParameters.key ?? null;
     const format = event.queryStringParameters.format ?? null;
@@ -197,6 +215,7 @@ export const fetchReport = async (event) => {
             find: '',
             replace: '',
             prepare: (record) => {
+                record = terraClassic(record);
                 // suffix date format with UTC
                 record.date += ' UTC';
                 if (record.comment?.startsWith('Sent to Pool')) {
@@ -233,6 +252,7 @@ export const fetchReport = async (event) => {
                     find: '',
                     replace: '',
                     prepare: (record) => {
+                        record = terraClassic(record);
                         // MM/DD/YYYY date format
                         record.date = record.date.replace(/(\d{4})-(\d{2})-(\d{2}) /, "$2/$3/$1 ");
                         // per their instructions, amount sent/received is to include any fees
@@ -260,6 +280,7 @@ export const fetchReport = async (event) => {
                     find: '',
                     replace: '',
                     prepare: (record) => {
+                        // not calling terraClassic(), since there is special handling below
                         // DD.MM.YYYY date format
                         record.date.replace(/,(\d{4})-(\d{2})-(\d{2}) /, ",$3.$2.$1 ");
                         for (const curr of ['buyCurr', 'sellCurr', 'feeCurr']) {
@@ -292,6 +313,7 @@ export const fetchReport = async (event) => {
                     find: '',
                     replace: '',
                     prepare: (record) => {
+                        record = terraClassic(record);
                         // MM/DD/YYYY date format
                         record.date = record.date.replace(/(\d{4})-(\d{2})-(\d{2}) /, "$2/$3/$1 ");
                         switch (record.type) {
@@ -320,6 +342,7 @@ export const fetchReport = async (event) => {
                     find: '',
                     replace: '',
                     prepare: (record) => {
+                        record = terraClassic(record);
                         // DD/MM/YYYY date format
                         record.date = record.date.replace(/(\d{4})-(\d{2})-(\d{2}) /, "$3/$2/$1 ") + ' UTC';
                         if (record.type === 'Trade') {
@@ -366,6 +389,7 @@ export const fetchReport = async (event) => {
                     find: '',
                     replace: '',
                     prepare: (record) => {
+                        record = terraClassic(record);
                         // YYYY-MM-DDTHH:MM:SSZ date format
                         record.date = record.date.replace(' ', 'T') + 'Z';
                         if (record.buyCurr) {

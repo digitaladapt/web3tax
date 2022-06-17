@@ -14,7 +14,7 @@ import {
 } from './functions.mjs';
 import { exec } from "child_process";
 import { promisify } from 'util';
-import {BASE_OFFSET} from "./calculations.mjs";
+import {ASSET_DECIMAL, BASE_OFFSET} from "./calculations.mjs";
 const execPromise = promisify(exec);
 
 // endpoint: render the html
@@ -223,6 +223,7 @@ export const fetchReport = async (event) => {
         };
 
         switch (format) {
+            // https://help.coinledger.io/en/articles/2584884-manual-import-guide
             // https://help.coinledger.io/en/articles/6028758-universal-manual-import-template-guide
             case 'coinledger':
                 keys  = ['date','exchange','sellCurr','sellAmount','buyCurr','buyAmount','feeCurr','fee','type','comment','txID'];
@@ -234,6 +235,12 @@ export const fetchReport = async (event) => {
                     prepare: (record) => {
                         // MM/DD/YYYY date format
                         record.date = record.date.replace(/(\d{4})-(\d{2})-(\d{2}) /, "$2/$3/$1 ");
+                        // per their instructions, amount sent/received is to include any fees
+                        if (record.feeCurr && record.buyCurr && record.feeCurr === record.buyCurr) {
+                            record.buyAmount = (Number(record.buyAmount) + Number(record.fee)).toFixed(ASSET_DECIMAL);
+                        } else if (record.feeCurr && record.sellCurr && record.feeCurr === record.sellCurr) {
+                            record.sellAmount = (Number(record.sellAmount) + Number(record.fee)).toFixed(ASSET_DECIMAL);
+                        }
                         switch (record.type) {
                             case 'Other Fee':
                             case 'Lost':

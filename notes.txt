@@ -1,3 +1,38 @@
+NEXT:
+
+list of cosmos chains that I've used, that we'll aim to support:
+
+Chihuahua       HUAHUA  DONE
+Cerberus        CRBRUS  DONE
+Lum Network     LUM     DONE
+Konstellation   DARC    (previously held, previously ran a validator)
+Osmosis         OSMO    (while already supported by stake.tax, but would like to handle LP Profit/Loss)
+Meme            MEME    (actively a validator, I think it has smart contracts, not sure if any exist on-chain yet)
+Starname        IOV     (previously held)
+Akash           AKT     (currently holding)
+Cosmos Hub      ATOM    (already supported by stake.tax, no need to add)
+Binance         BNB     (already supported by most tax tools, no need to add)
+Cheqd           CHEQ    (previously held)
+Comdex          CMDX    (currently holding)
+Crypto.com      CRO     (previously held)
+Dig             DIG     (previously held)
+Desmos          DSM     (previously held)
+Sentinel        DVPN    (previously held)
+Fetch.ai        FET     (previously held)
+Provenance      HASH    (previously held)
+Juno            JUNO    (currently holding, has smart contracts, will need extra work)
+Kava            KAVA    (previously held)
+Genesis         L1      (random airdrop, no white paper, unknown quality, I think it has smart contracts)
+Asset Mantle    MNTL    (previously held, have some stuck vesting)
+e-Money         NGM     (currently holding)
+Regen           REGEN   (previously held)
+Sifchain        ROWAN   (previously held)
+Secret          SCRT    (currently holding, has smart contracts, will need extra work)
+Sommelier       SOMM    (previously held)
+Stargaze        STARS   (currently holding, has NFTs, will need extra work)
+
+---
+
 NEW:
 
 instead of the whole 'make bookmark-able', just update the url on blur of any field,

@@ -19,6 +19,11 @@ ThorChain Midgard API parser written in NodeJS, with long-term plans of becoming
 * 9th, Apr, 2022: Reported previously missed ThorChain transaction hashes.
 * 9th, Apr, 2022: UI/UX updates, auto-complete related addresses.
 * 19th, Apr, 2022: Added support for TaxBit CSV format.
+* 6th, Jun, 2022: Stability improvements, midgard rate-limiting.
+* 31st, May, 2022: Style updates as part of larger branding efforts.
+* 13th, Jun, 2022: Lum Network chain is now supported.
+* 17th, Jun, 2022: Added support for CoinLedger CSV format.
+* 8th, Jul, 2022: Lum Network now using validator names instead of addresses.
 ### Roadmap ###
 ThorChain related improvements (in no particular order)
 * fix rare edge-case bug: very large swaps with multiple output transactions, second output currently gets ignored.

@@ -9,6 +9,7 @@ const hostname = 'localhost';
 const port = Number(process.env.PORT);
 
 let indexPage = '';
+let libraryScript = '';
 let convertScript = '';
 let keybaseProof = '';
 
@@ -30,6 +31,10 @@ const server = http.createServer((req, res) => {
         case '/index.html':
             res.setHeader('Content-Type', 'text/html');
             res.end(indexPage);
+            break;
+        case '/zepto.min.js':
+            res.setHeader('Content-Type', 'application/javascript');
+            res.end(libraryScript);
             break;
         case '/convert-address.js':
             res.setHeader('Content-Type', 'application/javascript');
@@ -109,6 +114,14 @@ fs.readFile('./convert-address.js', (error, buffer) => {
     }
     convertScript = buffer.toString();
     console.log('successfully loaded convert-address.js');
+});
+
+fs.readFile('./zepto.min.js', (error, buffer) => {
+    if (error) {
+        throw error;
+    }
+    libraryScript = buffer.toString();
+    console.log('successfully loaded zepto.min.js');
 });
 
 fs.readFile('./keybase.txt', (error, buffer) => {

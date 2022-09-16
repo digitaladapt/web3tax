@@ -11,6 +11,7 @@ const port = Number(process.env.PORT);
 let indexPage = '';
 let libraryScript = '';
 let convertScript = '';
+let libraryStyle = '';
 let keybaseProof = '';
 
 const server = http.createServer((req, res) => {
@@ -39,6 +40,10 @@ const server = http.createServer((req, res) => {
         case '/convert-address.js':
             res.setHeader('Content-Type', 'application/javascript');
             res.end(convertScript);
+            break;
+        case '/bulma.min.css':
+            res.setHeader('Content-Type', 'text/css');
+            res.end(libraryStyle);
             break;
         case '/keybase.txt':
             res.setHeader('Content-Type', 'text/plain');
@@ -122,6 +127,14 @@ fs.readFile('./zepto.min.js', (error, buffer) => {
     }
     libraryScript = buffer.toString();
     console.log('successfully loaded zepto.min.js');
+});
+
+fs.readFile('./bulma.min.css', (error, buffer) => {
+    if (error) {
+        throw error;
+    }
+    libraryStyle = buffer.toString();
+    console.log('successfully loaded bulma.min.css');
 });
 
 fs.readFile('./keybase.txt', (error, buffer) => {

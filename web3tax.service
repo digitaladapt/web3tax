@@ -1,0 +1,15 @@
+[Unit]
+Description=web3tax.info
+After=network-online.target
+
+[Service]
+User=andrew
+ExecStart=/var/opt/web3tax/run.sh
+ExecStopPost=/home/andrew/bin/discord.sh general Alert web3tax.info Stopping/Restarting
+ExecStartPost=/home/andrew/bin/discord.sh general Alert web3tax.info Starting
+Restart=always
+RestartSec=3
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target

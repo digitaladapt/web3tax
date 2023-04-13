@@ -244,7 +244,7 @@ export const cosmos = async (network, wallet, pagination, limit, action, directi
             tx.events = null; // not needed
             await addCosmosTx(tx);
         }
-        return Number(data.pagination.total);
+        return Number(data.pagination ? data.pagination.total : 0);
     }).catch((error) => {
         throw error;
     });

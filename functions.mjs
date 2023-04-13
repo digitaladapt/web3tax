@@ -237,7 +237,7 @@ export const cosmos = async (network, wallet, pagination, limit, action, directi
         // console.log('response: fetch successful');
         return response.json();
     }).then(async (data) => {
-        await setTotal(wallet + '-' + direction + '-' + action, Number(data.pagination.total));
+        await setTotal(wallet + '-' + direction + '-' + action, Number(data.pagination ? data.pagination.total : 0));
         for (const tx of data.tx_responses) {
             tx.chain = network;
             tx.raw_log = null; // not needed
@@ -374,10 +374,11 @@ export const normalizeAddresses = (addresses) => {
                 continue;
             }
             // cerberus /^cerberus[a-z0-9]{38,90}$/
-            if (/^cerberus[a-z0-9]{38,90}$/.test(address)) {
-                wallets.add(address, COSMOS_TAG);
-                continue;
-            }
+            // DISABLED
+            //if (/^cerberus[a-z0-9]{38,90}$/.test(address)) {
+            //    wallets.add(address, COSMOS_TAG);
+            //    continue;
+            //}
             // lum /^lum[a-z0-9]{38,90}$/
             if (/^lum[a-z0-9]{38,90}$/.test(address)) {
                 wallets.add(address, COSMOS_TAG);

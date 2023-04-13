@@ -146,5 +146,6 @@ fs.readFile('./keybase.txt', (error, buffer) => {
 });
 
 await loadNodes('chihuahua');
-await loadNodes('cerberus');
+// DISABLED
+// await loadNodes('cerberus');
 await loadNodes('lum');

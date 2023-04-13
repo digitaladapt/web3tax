@@ -22,8 +22,8 @@ cd "$(dirname "$0")" || exit
 REDIS_ENDPOINT=localhost:6379 \
 REDIS_PREFIX='test_' \
 MIDGARD_LIMIT=50 \
-MIDGARD_URL_A='https://midgard.thorchain.info/v2/actions?limit=50&address={WALLETS}&offset={OFFSET}' \
-MIDGARD_URL_B='https://midgard.ninerealms.com/v2/actions?limit=50&address={WALLETS}&offset={OFFSET}' \
+MIDGARD_URL_A='https://midgard.ninerealms.com/v2/actions?limit=50&address={WALLETS}&offset={OFFSET}' \
+MIDGARD_URL_B='https://midgard.thorswap.net/v2/actions?limit=50&address={WALLETS}&offset={OFFSET}' \
 THORNODE_LIMIT=50 \
 THORNODE_URL='https://thornode.ninerealms.com/txs?limit=50&message.action=send&transfer.{DIRECTION}={WALLET}&page={PAGE}' \
 chihuahua_LIMIT=100 \

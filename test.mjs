@@ -3,8 +3,21 @@ import * as handler from './handler.mjs';
 process.env.REDIS_ENDPOINT = 'localhost:6379';
 process.env.REDIS_PREFIX = 'test_';
 process.env.MIDGARD_LIMIT = '50';
-process.env.MIDGARD_URL = 'https://midgard.thorchain.info/v2/actions?limit=50&address={WALLETS}&offset={OFFSET}';
-process.env.PORT = '3000';
+// process.env.MIDGARD_URL = 'https://midgard.thorchain.info/v2/actions?limit=50&address={WALLETS}&offset={OFFSET}';
+process.env.MIDGARD_URL_A = 'https://midgard.thorchain.info/v2/actions?limit=50&address={WALLETS}&offset={OFFSET}';
+process.env.MIDGARD_URL_B = 'https://midgard.ninerealms.com/v2/actions?limit=50&address={WALLETS}&offset={OFFSET}';
+process.env.THORNODE_LIMIT = 50;
+process.env.THORNODE_URL = 'https://thornode.ninerealms.com/txs?limit=50&message.action=send&transfer.{DIRECTION}={WALLET}&page={PAGE}';
+process.env.chihuahua_LIMIT = 100;
+process.env.chihuahua_URL = 'https://lcd-chihuahua.cosmostation.io/cosmos/tx/v1beta1/txs?pagination.limit=100&pagination.offset={OFFSET}&events={DIRECTION}%3D%27{WALLET}%27&events=message.action%3D%27{ACTION}%27';
+process.env.chihuahua_NODES = 'https://api.chihuahua.wtf/cosmos/staking/v1beta1/validators?pagination.limit=500';
+process.env.cerberus_LIMIT = 100;
+process.env.cerberus_URL = 'https://lcd-cerberus.cosmostation.io/cosmos/tx/v1beta1/txs?pagination.limit=100&pagination.offset={OFFSET}&events={DIRECTION}%3D%27{WALLET}%27&events=message.action%3D%27{ACTION}%27';
+process.env.cerberus_NODES = 'https://lcd-cerberus.cosmostation.io/cosmos/staking/v1beta1/validators?pagination.limit=500';
+process.env.lum_LIMIT = 100;
+process.env.lum_URL = 'https://lcd-lum.cosmostation.io/cosmos/tx/v1beta1/txs?pagination.limit=100&pagination.offset={OFFSET}&events={DIRECTION}%3D%27{WALLET}%27&events=message.action%3D%27{ACTION}%27';
+process.env.lum_NODES = 'https://lcd-lum.cosmostation.io/cosmos/staking/v1beta1/validators?pagination.limit=500';
+process.env.PORT = '3001';
 process.env.TTL = '7200';
 
 const sleep = async (millis) => {

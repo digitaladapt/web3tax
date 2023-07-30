@@ -1,5 +1,7 @@
-# Web3Tax.Info #
-## ThorChain Tax Calculator ##
+# WARNING: I've stopped working on this project. #
+Feel free to fork the code and do whatever. 
+
+## Web3Tax.Info (ThorChain Tax Calculator) ##
 ### Summary ###
 Generate import-ready CSV file of your (ThorChain) blockchain transactions.
 ### High Level Technical Details ###

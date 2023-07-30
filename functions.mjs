@@ -219,7 +219,7 @@ export const historicalThornode = async (wallet, addAction) => {
     }
 };
 
-export const cosmos = async (network, wallet, pagination, limit, action, direction, addCosmosTx, setTotal) => {
+export const cosmos = async (network, wallet, pagination, limit, action, direction, addCosmosTx, setTotal, setMinID, givenMinID) => {
     const baseUrl = process.env[network + '_URL'];
     // the network variable must be one of the recognized options specified in the environment with "_URL" and "_LIMIT"
     // suffixed versions defined, expectation is to use the address prefix for the given blockchain as the network
@@ -227,24 +227,32 @@ export const cosmos = async (network, wallet, pagination, limit, action, directi
         throw 'Missing required configuration for given cosmos network: "' + network + '".';
     }
     const url = baseUrl
-        .replace('{DIRECTION}', direction)
-        .replace('{ACTION}', action)
+        //.replace('{DIRECTION}', direction)
+        //.replace('{ACTION}', action)
         .replace('{WALLET}', wallet)
-        .replace('{OFFSET}', String(pagination * limit))
+        //.replace('{OFFSET}', String(pagination * limit))
+        .replace('{ID}', String(givenMinID ?? 0))
     ;
-    // console.log('url: ' + url);
+    console.log('url: ' + url);
     return await fetch(url).then((response) => {
         // console.log('response: fetch successful');
         return response.json();
     }).then(async (data) => {
-        await setTotal(wallet + '-' + direction + '-' + action, Number(data.pagination ? data.pagination.total : 0));
-        for (const tx of data.tx_responses) {
+        let minID = null;
+        await setTotal(wallet, data.length, true);
+        for (const tx of data) {
             tx.chain = network;
-            tx.raw_log = null; // not needed
-            tx.events = null; // not needed
+            tx.data.raw_log = null; // not needed
+            for (const i in tx.data.logs) {
+                tx.data.logs[i].events = null; // not needed
+            }
+            if (minID === null || tx.header.id < minID) {
+                minID = tx.header.id
+            }
+            await setMinID(wallet, minID);
             await addCosmosTx(tx);
         }
-        return Number(data.pagination ? data.pagination.total : 0);
+        return data.length;
     }).catch((error) => {
         throw error;
     });
@@ -373,6 +381,11 @@ export const normalizeAddresses = (addresses) => {
                 wallets.add(address, COSMOS_TAG);
                 continue;
             }
+            // akash /^akash[a-z0-9]{38,90}$/
+            if (/^akash[a-z0-9]{38,90}$/.test(address)) {
+                wallets.add(address, COSMOS_TAG);
+                continue;
+            }
             // cerberus /^cerberus[a-z0-9]{38,90}$/
             // DISABLED
             //if (/^cerberus[a-z0-9]{38,90}$/.test(address)) {
@@ -456,12 +469,14 @@ export const runDownload = async (redis, key, wallets, config) => {
     const lock = new AsyncLock({ timeout: 5000 });
     let downloaded =  0;
     let total = {};
+    let minIDs = {};
     let grand = 1;
     let firstAction = true;
 
     // notice: nested actions are only checked if the first action has at least one result
     // IE: if a wallet has no "MsgDelegate", we don't bother checking for "MsgUndelegate"
-    const cosmosGroups = [
+    const cosmosGroups = [['all']];
+    /* [
         // on-chain sending
         ['/cosmos.bank.v1beta1.MsgSend'],
         ['/cosmos.bank.v1beta1.MsgMultiSend'],
@@ -492,7 +507,7 @@ export const runDownload = async (redis, key, wallets, config) => {
 
         // TODO need find out what else Juno needs, and how to process them..
         // I would expect a CW Smart Contract call..
-    ];
+    ]; */
 
     // kick off each process as async job, then wait until all have completed, then return
     const addAction = async (action) => {
@@ -516,7 +531,7 @@ export const runDownload = async (redis, key, wallets, config) => {
         await redis.set(key + '_status', 'Downloading ' + downloaded+ ' of ' + grand);
         await redis.expire(key + '_status', process.env.TTL);
 
-        await redis.zAdd(key + '_action', {score: String((new Date(tx.timestamp)).getTime()), value: JSON.stringify(tx)});
+        await redis.zAdd(key + '_action', {score: String((new Date(tx.header.timestamp)).getTime()), value: JSON.stringify(tx)});
         if (firstAction) {
             firstAction = false;
             // console.log('set data-expire');
@@ -524,11 +539,20 @@ export const runDownload = async (redis, key, wallets, config) => {
         }
     };
 
-    const setTotal = (id, count) => {
+    const setTotal = (id, count, add) => {
         // calculate updated grand total
         let prev = total[id] ?? 0;
-        total[id] = count;
-        grand += count - prev;
+        if (add) {
+            total[id] = prev + count;
+            grand += count;
+        } else {
+            total[id] = count;
+            grand += count - prev;
+        }
+    };
+
+    const setMinID = (key, id) => {
+        minIDs[key] = id;
     };
 
     await redis.set(key + '_status', 'Starting to Download Transactions');
@@ -582,11 +606,13 @@ export const runDownload = async (redis, key, wallets, config) => {
             const limit = Number(process.env[network + '_LIMIT']);
             let runAdditional = false;
             // TODO FUTURE: optimize, some values of "first", will *never* have results for direction "transfer.recipient"
-            for (const direction of ['message.sender', 'transfer.recipient']) {
+            for (const direction of ['message.sender' /* , 'transfer.recipient' */ ]) {
                 let page = 0;
                 let count = -1;
+                let minID = 0;
                 do {
-                    count = await cosmos(network, wallet, page, limit, first, direction, addCosmosTx, setTotal);
+                    count += await cosmos(network, wallet, page, limit, first, direction, addCosmosTx, setTotal, setMinID, minID);
+                    minID = minIDs[wallet];
                     page++;
                 } while (page * limit < count && page < PAGE_CAP);
                 if (count > 0) {

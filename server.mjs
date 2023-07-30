@@ -149,3 +149,4 @@ await loadNodes('chihuahua');
 // DISABLED
 // await loadNodes('cerberus');
 await loadNodes('lum');
+await loadNodes('akash');

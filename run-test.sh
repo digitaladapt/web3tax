@@ -16,6 +16,9 @@
 #terra_LIMIT=100 \
 #terra_URL='https://lcd.terra.dev/cosmos/tx/v1beta1/txs?pagination.limit=100&pagination.offset={OFFSET}&events={DIRECTION}%3D%27{WALLET}%27&events=message.action%3D%27{ACTION}%27' \
 #terra_NODES='https://lcd.terra.dev/cosmos/staking/v1beta1/validators?pagination.limit=500' \
+#cerberus_LIMIT=100 \
+#cerberus_URL='https://api.mintscan.io/v1/cerberus/account/{WALLET}/txs?limit=50&from={ID}' \
+#cerberus_NODES='https://lcd-cerberus.cosmostation.io/cosmos/staking/v1beta1/validators?pagination.limit=500' \
 
 cd "$(dirname "$0")" || exit
 
@@ -26,14 +29,14 @@ MIDGARD_URL_A='https://midgard.ninerealms.com/v2/actions?limit=50&address={WALLE
 MIDGARD_URL_B='https://midgard.thorswap.net/v2/actions?limit=50&address={WALLETS}&offset={OFFSET}' \
 THORNODE_LIMIT=50 \
 THORNODE_URL='https://thornode.ninerealms.com/txs?limit=50&message.action=send&transfer.{DIRECTION}={WALLET}&page={PAGE}' \
+akash_LIMIT=100 \
+akash_URL='https://api.mintscan.io/v1/akash/account/{WALLET}/txs?limit=50&from={ID}' \
+akash_NODES='https://lcd-akash.cosmostation.io/cosmos/staking/v1beta1/validators?pagination.limit=500' \
 chihuahua_LIMIT=100 \
-chihuahua_URL='https://lcd-chihuahua.cosmostation.io/cosmos/tx/v1beta1/txs?pagination.limit=100&pagination.offset={OFFSET}&events={DIRECTION}%3D%27{WALLET}%27&events=message.action%3D%27{ACTION}%27' \
+chihuahua_URL='https://api.mintscan.io/v1/chihuahua/account/{WALLET}/txs?limit=50&from={ID}' \
 chihuahua_NODES='https://api.chihuahua.wtf/cosmos/staking/v1beta1/validators?pagination.limit=500' \
-cerberus_LIMIT=100 \
-cerberus_URL='https://lcd-cerberus.cosmostation.io/cosmos/tx/v1beta1/txs?pagination.limit=100&pagination.offset={OFFSET}&events={DIRECTION}%3D%27{WALLET}%27&events=message.action%3D%27{ACTION}%27' \
-cerberus_NODES='https://lcd-cerberus.cosmostation.io/cosmos/staking/v1beta1/validators?pagination.limit=500' \
 lum_LIMIT=100 \
-lum_URL='https://lcd-lum.cosmostation.io/cosmos/tx/v1beta1/txs?pagination.limit=100&pagination.offset={OFFSET}&events={DIRECTION}%3D%27{WALLET}%27&events=message.action%3D%27{ACTION}%27' \
+lum_URL='https://api.mintscan.io/v1/lum/account/{WALLET}/txs?limit=50&from={ID}' \
 lum_NODES='https://lcd-lum.cosmostation.io/cosmos/staking/v1beta1/validators?pagination.limit=500' \
 PORT=3001 \
 TTL=720 \

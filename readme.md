@@ -1,7 +1,7 @@
 # WARNING: I've stopped working on this project. #
 Feel free to fork the code and do whatever. At last check some of APIs I was calling have changed their output, and some updates to the code will be needed to get this processing again.
 
-If you get it working again, I'll redirect people to your version.
+If you get it working again, I'll redirect people to your version. If you decide to give it a try, look at the dev and dev2 branches, I had started on an update, but not sure how mich is left.
 
 ## Web3Tax.Info (ThorChain Tax Calculator) ##
 ### Summary ###
